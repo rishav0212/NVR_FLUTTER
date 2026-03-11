@@ -7,7 +7,8 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/other_pages.dart';
-import '../../main.dart'; // To access _SplashScreen
+import '../../main.dart';
+import '../theme/app_theme.dart';
 
 class AppRouter {
   final AuthBloc authBloc;
@@ -16,61 +17,127 @@ class AppRouter {
 
   late final GoRouter router = GoRouter(
     initialLocation: AppConstants.splashRoute,
-    // Listens to your BLoC. If state changes, it re-evaluates the redirect logic!
     refreshListenable: _GoRouterRefreshStream(authBloc.stream),
-    
+
     redirect: (context, state) {
       final authState = authBloc.state;
       final path = state.uri.path;
 
       final isSplash = path == AppConstants.splashRoute;
-      final isAuthScreen = path == AppConstants.loginRoute || 
-                           path == AppConstants.registerRoute || 
-                           path == AppConstants.forgotPasswordRoute;
+      final isAuthScreen =
+          path == AppConstants.loginRoute ||
+          path == AppConstants.registerRoute ||
+          path == AppConstants.forgotPasswordRoute;
 
-      // 1. App is starting
       if (authState is AuthInitial) return AppConstants.splashRoute;
 
-      // 2. User is NOT logged in
-      if (authState is AuthUnauthenticated || authState is AuthError || authState is AuthActionSuccess) {
-        if (isAuthScreen) return null; // Let them browse auth screens
-        return AppConstants.loginRoute; // Kick unauthorized users to login
+      // ✅ FIXED: AuthError removed — errors don't mean unauthenticated.
+      // Pages handle AuthError display themselves via BlocBuilder/ErrorBanner.
+      if (authState is AuthUnauthenticated || authState is AuthActionSuccess) {
+        if (isAuthScreen) return null;
+        return AppConstants.loginRoute;
       }
 
-      // 3. User logged in, but needs to add phone number
       if (authState is AuthProfileIncomplete) {
         if (path == AppConstants.completeProfileRoute) return null;
         return AppConstants.completeProfileRoute;
       }
 
-      // 4. User is fully authenticated
       if (authState is AuthAuthenticated) {
-        if (isAuthScreen || isSplash || path == AppConstants.completeProfileRoute) {
-          return AppConstants.homeRoute; // Send to dashboard
+        if (isAuthScreen ||
+            isSplash ||
+            path == AppConstants.completeProfileRoute) {
+          return AppConstants.homeRoute;
         }
       }
 
-      return null; // No redirect needed
+      return null;
     },
-    
+
     routes: [
-      GoRoute(path: AppConstants.splashRoute, builder: (context, state) => const SplashScreen()),
-      GoRoute(path: AppConstants.loginRoute, builder: (context, state) => const LoginPage()),
-      GoRoute(path: AppConstants.registerRoute, builder: (context, state) => const RegisterPage()),
-      GoRoute(path: AppConstants.forgotPasswordRoute, builder: (context, state) => const ForgotPasswordPage()),
-      GoRoute(path: AppConstants.completeProfileRoute, builder: (context, state) => const CompleteProfilePage()),
-      GoRoute(path: AppConstants.homeRoute, builder: (context, state) => const HomePage()),
+      GoRoute(
+        path: AppConstants.splashRoute,
+        pageBuilder: (context, state) =>
+            _buildPage(state, const SplashScreen()),
+      ),
+      GoRoute(
+        path: AppConstants.loginRoute,
+        pageBuilder: (context, state) => _buildPage(state, const LoginPage()),
+      ),
+      GoRoute(
+        path: AppConstants.registerRoute,
+        pageBuilder: (context, state) =>
+            _buildPage(state, const RegisterPage()),
+      ),
+      GoRoute(
+        path: AppConstants.forgotPasswordRoute,
+        pageBuilder: (context, state) =>
+            _buildPage(state, const ForgotPasswordPage()),
+      ),
+      GoRoute(
+        path: AppConstants.completeProfileRoute,
+        pageBuilder: (context, state) =>
+            _buildPage(state, const CompleteProfilePage()),
+      ),
+      GoRoute(
+        path: AppConstants.homeRoute,
+        pageBuilder: (context, state) => _buildPage(state, const HomePage()),
+      ),
     ],
   );
+
+  // ── Page transition builder ───────────────────────────────────────────────
+  //
+  // Defined ONCE here — all routes call _buildPage() instead of repeating
+  // the transition logic. To change the transition app-wide, edit this only.
+  //
+  // Effect: fade + subtle upward slide (0.05 offset).
+  // Duration: AppTheme.tSlow (540ms) with easeOutExpo curve.
+  //
+  static Page<void> _buildPage(GoRouterState state, Widget child) {
+    return CustomTransitionPage<void>(
+      key: state.pageKey,
+      child: child,
+      transitionDuration: AppTheme.tSlow,
+      reverseTransitionDuration: AppTheme.tMid,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        // Fade in over first 70% of animation
+        final fade = CurvedAnimation(
+          parent: animation,
+          curve: const Interval(0.0, 0.7, curve: AppTheme.curveEntrance),
+        );
+
+        // Slide up from a slight offset
+        final slide =
+            Tween<Offset>(
+              begin: const Offset(0, 0.05),
+              end: Offset.zero,
+            ).animate(
+              CurvedAnimation(parent: animation, curve: AppTheme.curveEntrance),
+            );
+
+        return FadeTransition(
+          opacity: fade,
+          child: SlideTransition(position: slide, child: child),
+        );
+      },
+    );
+  }
 }
 
-// Helper class to convert a BLoC Stream into a Listenable for GoRouter
+// ── GoRouter refresh stream ───────────────────────────────────────────────────
+//
+// Converts the AuthBloc stream into a ChangeNotifier so GoRouter can
+// listen to state changes and re-evaluate redirect() automatically.
+//
 class _GoRouterRefreshStream extends ChangeNotifier {
   late final StreamSubscription<dynamic> _subscription;
+
   _GoRouterRefreshStream(Stream<dynamic> stream) {
     notifyListeners();
     _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
   }
+
   @override
   void dispose() {
     _subscription.cancel();

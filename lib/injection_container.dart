@@ -30,7 +30,7 @@ Future<void> initDi() async {
   );
 
   // 4. BLoCs
-  // BLoCs are registered as Factory (creates a new instance if needed)
+  // Since AuthBloc is so central to the app, we create it as a singleton here.
   getIt.registerLazySingleton<AuthBloc>(
     () => AuthBloc(getIt<AuthRepository>()),
   );

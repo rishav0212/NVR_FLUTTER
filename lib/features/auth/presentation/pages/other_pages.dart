@@ -54,9 +54,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(
-        context,
-      ).scaffoldBackgroundColor, // <--- DYNAMIC BACKGROUND
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: PageBackground(
         child: BlocBuilder<AuthBloc, AuthState>(
           builder: (context, state) {
@@ -71,15 +69,12 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                   children: [
                     const SizedBox(height: AppTheme.s48),
 
-                    // ── Icon header ────────────────────────────────────────
                     AnimatedEntrance(
                       delay: Duration.zero,
                       child: Container(
                         width: 52,
                         height: 52,
-                        decoration: AppTheme.amberIconBox(
-                          context,
-                        ), // <--- DYNAMIC BADGE
+                        decoration: AppTheme.amberIconBox(context),
                         child: const Icon(
                           Icons.person_outline_rounded,
                           color: AppTheme.amber,
@@ -110,7 +105,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
 
                     const SizedBox(height: AppTheme.s32),
 
-                    // ── Form ───────────────────────────────────────────────
                     AnimatedEntrance(
                       delay: const Duration(milliseconds: 160),
                       child: Form(
@@ -154,7 +148,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
 
                     const Spacer(),
 
-                    // ── CTA ────────────────────────────────────────────────
                     AnimatedEntrance(
                       delay: const Duration(milliseconds: 240),
                       child: PrimaryButton(
@@ -179,19 +172,36 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
 // ═════════════════════════════════════════════════════════════════════════════
 // HOME PAGE
 // ═════════════════════════════════════════════════════════════════════════════
-class HomePage extends StatelessWidget {
+
+// ✅ StatefulWidget — required for initState/dispose lifecycle methods
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  @override
+  void initState() {
+    super.initState();
+    WakelockPlus.enable(); // ✅ Called once on mount — NOT in build()
+  }
+
+  @override
+  void dispose() {
+    WakelockPlus.disable(); // ✅ Released when navigating away
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    WakelockPlus.enable();
+    // ✅ NO WakelockPlus here — build() is for UI only
     final state = context.watch<AuthBloc>().state;
     final user = state is AuthAuthenticated ? state.user : null;
 
     return Scaffold(
-      backgroundColor: Theme.of(
-        context,
-      ).scaffoldBackgroundColor, // <--- DYNAMIC BACKGROUND
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: PageBackground(
         child: SafeArea(
           child: Column(
@@ -245,6 +255,8 @@ class HomePage extends StatelessWidget {
   }
 }
 
+// ── Home sub-widgets ──────────────────────────────────────────────────────────
+
 class _HomeTopBar extends StatelessWidget {
   final String? userName;
 
@@ -275,9 +287,7 @@ class _HomeTopBar extends StatelessWidget {
                   ),
                   child: Icon(
                     Icons.videocam_rounded,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onPrimary, // DYNAMIC ICON COLOR
+                    color: Theme.of(context).colorScheme.onPrimary,
                     size: 16,
                   ),
                 ),
@@ -302,9 +312,7 @@ class _HomeTopBar extends StatelessWidget {
                   icon: Icon(
                     Icons.logout_outlined,
                     size: 18,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurfaceVariant, // DYNAMIC ICON COLOR
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   onPressed: () =>
                       context.read<AuthBloc>().add(LogoutRequested()),
@@ -341,7 +349,7 @@ class _AvatarButton extends StatelessWidget {
       width: 34,
       height: 34,
       decoration: BoxDecoration(
-        gradient: ext.amberTint, // DYNAMIC TINT
+        gradient: ext.amberTint,
         shape: BoxShape.circle,
         border: Border.all(color: AppTheme.amber.withOpacity(0.2)),
       ),
@@ -351,7 +359,7 @@ class _AvatarButton extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: Theme.of(context).colorScheme.primary, // DYNAMIC PRIMARY
+          color: Theme.of(context).colorScheme.primary,
         ),
       ),
     );
@@ -370,13 +378,10 @@ class _StatusRow extends StatelessWidget {
         horizontal: AppTheme.s16,
         vertical: AppTheme.s12,
       ),
-      decoration: AppTheme.glassCard(
-        context,
-        radius: AppTheme.rMd,
-      ), // DYNAMIC GLASS
+      decoration: AppTheme.glassCard(context, radius: AppTheme.rMd),
       child: Row(
         children: [
-          PulsingDot(color: ext.success), // DYNAMIC SUCCESS
+          PulsingDot(color: ext.success),
           const SizedBox(width: AppTheme.s10),
           Text(
             'System online',
@@ -400,18 +405,17 @@ class _EmptyStateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<AppColorsExtension>()!;
+
     return Container(
       padding: const EdgeInsets.all(AppTheme.s40),
-      decoration: AppTheme.glassCard(context), // DYNAMIC GLASS
+      decoration: AppTheme.glassCard(context),
       child: Column(
         children: [
           Container(
             width: 64,
             height: 64,
-            decoration: AppTheme.amberIconBox(
-              context,
-              radius: AppTheme.rLg,
-            ), // DYNAMIC BADGE
+            decoration: AppTheme.amberIconBox(context, radius: AppTheme.rLg),
             child: const Icon(
               Icons.videocam_off_outlined,
               color: AppTheme.amber,
@@ -436,9 +440,7 @@ class _EmptyStateCard extends StatelessWidget {
               vertical: AppTheme.s8,
             ),
             decoration: BoxDecoration(
-              gradient: Theme.of(
-                context,
-              ).extension<AppColorsExtension>()!.amberTint, // DYNAMIC TINT
+              gradient: ext.amberTint,
               borderRadius: BorderRadius.circular(AppTheme.rFull),
               border: Border.all(color: AppTheme.amber.withOpacity(0.2)),
             ),
