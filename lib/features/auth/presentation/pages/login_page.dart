@@ -4,14 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/app_haptics.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../bloc/auth_bloc.dart';
 
-/// Login page.
+/// Presentation layer for the Login Feature.
 ///
-/// Layout: Full-screen PageBackground with mesh gradients.
-/// Content scrolls inside a CustomScrollView to handle keyboard safely.
-/// All navigation handled by the router — no Navigator calls here.
+/// Layout: Full-screen PageBackground with a CustomScrollView to ensure
+/// safe rendering and auto-scrolling when the device keyboard is open.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -21,6 +21,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
+  final _shakeKey = GlobalKey<ShakeWidgetState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isGoogleLoading = false;
@@ -35,6 +36,7 @@ class _LoginPageState extends State<LoginPage> {
   void _submit() {
     FocusScope.of(context).unfocus();
     if (_formKey.currentState?.validate() ?? false) {
+      AppHaptics.medium();
       context.read<AuthBloc>().add(
         LoginRequested(
           email: _emailController.text.trim(),
@@ -67,14 +69,24 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // We dynamically pull the scaffold background color from the active theme
-      // rather than hardcoding AppTheme.bgBase, ensuring seamless Light/Dark mode transitions.
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: PageBackground(
         child: GestureDetector(
           onTap: () => FocusScope.of(context).unfocus(),
           behavior: HitTestBehavior.opaque,
-          child: BlocBuilder<AuthBloc, AuthState>(
+
+          // BlocConsumer is utilized strictly to capture state changes for UI side-effects
+          // (e.g., triggering haptic vibrations or form shake animations).
+          // Actual page routing logic remains encapsulated within GoRouter's global listenable.
+          child: BlocConsumer<AuthBloc, AuthState>(
+            listener: (context, state) {
+              if (state is AuthError) {
+                AppHaptics.error();
+                _shakeKey.currentState?.shake();
+              } else if (state is AuthAuthenticated) {
+                AppHaptics.success();
+              }
+            },
             builder: (context, state) {
               final isLoading = state is AuthLoading;
               final errorMessage = state is AuthError ? state.message : null;
@@ -129,39 +141,44 @@ class _LoginPageState extends State<LoginPage> {
                             // ── Form ──────────────────────────────────────
                             AnimatedEntrance(
                               delay: const Duration(milliseconds: 160),
-                              child: Form(
-                                key: _formKey,
-                                child: Column(
-                                  children: [
-                                    AppTextField(
-                                      label: 'Email',
-                                      controller: _emailController,
-                                      keyboardType: TextInputType.emailAddress,
-                                      prefixIcon: Icons.mail_outline_rounded,
-                                      textInputAction: TextInputAction.next,
-                                      validator: (v) {
-                                        if (v == null || v.isEmpty)
-                                          return 'Email is required';
-                                        if (!v.contains('@'))
-                                          return 'Enter a valid email';
-                                        return null;
-                                      },
-                                    ),
-                                    const SizedBox(height: AppTheme.s12),
-                                    AppTextField(
-                                      label: 'Password',
-                                      controller: _passwordController,
-                                      obscureText: true,
-                                      prefixIcon: Icons.lock_outline_rounded,
-                                      textInputAction: TextInputAction.done,
-                                      onSubmitted: (_) => _submit(),
-                                      validator: (v) {
-                                        if (v == null || v.isEmpty)
-                                          return 'Password is required';
-                                        return null;
-                                      },
-                                    ),
-                                  ],
+                              child: ShakeWidget(
+                                key: _shakeKey,
+                                child: Form(
+                                  key: _formKey,
+                                  child: Column(
+                                    children: [
+                                      AppTextField(
+                                        label: 'Email',
+                                        controller: _emailController,
+                                        keyboardType:
+                                            TextInputType.emailAddress,
+                                        prefixIcon: Icons.mail_outline_rounded,
+                                        textInputAction: TextInputAction.next,
+                                        autofocus: true,
+                                        validator: (v) {
+                                          if (v == null || v.isEmpty)
+                                            return 'Email is required';
+                                          if (!v.contains('@'))
+                                            return 'Enter a valid email';
+                                          return null;
+                                        },
+                                      ),
+                                      const SizedBox(height: AppTheme.s12),
+                                      AppTextField(
+                                        label: 'Password',
+                                        controller: _passwordController,
+                                        obscureText: true,
+                                        prefixIcon: Icons.lock_outline_rounded,
+                                        textInputAction: TextInputAction.done,
+                                        onSubmitted: (_) => _submit(),
+                                        validator: (v) {
+                                          if (v == null || v.isEmpty)
+                                            return 'Password is required';
+                                          return null;
+                                        },
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -173,6 +190,7 @@ class _LoginPageState extends State<LoginPage> {
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
                                   onPressed: () {
+                                    AppHaptics.selection();
                                     FocusScope.of(context).unfocus();
                                     context.push(
                                       AppConstants.forgotPasswordRoute,
@@ -250,9 +268,12 @@ class _LoginPageState extends State<LoginPage> {
                                       ).textTheme.bodyMedium,
                                     ),
                                     TextButton(
-                                      onPressed: () => context.push(
-                                        AppConstants.registerRoute,
-                                      ),
+                                      onPressed: () {
+                                        AppHaptics.selection();
+                                        context.push(
+                                          AppConstants.registerRoute,
+                                        );
+                                      },
                                       child: const Text('Create account'),
                                     ),
                                   ],

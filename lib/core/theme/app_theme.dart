@@ -5,9 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 // ═════════════════════════════════════════════════════════════════════════════
 // THEME EXTENSION: DYNAMIC COLORS & GRADIENTS
 // ═════════════════════════════════════════════════════════════════════════════
-// This allows us to inject custom colors and gradients directly into the
-// Flutter Theme, meaning they will automatically switch when the user toggles
-// between Light and Dark mode, rather than being stuck as static variables.
+// Allows custom colors, gradients, and shadow properties to be injected directly
+// into the Flutter Theme. This ensures components automatically switch properties
+// when transitioning between Light and Dark mode without requiring manual
+// boolean checks (e.g., isDarkMode) inside UI widgets.
 class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   final Color success;
   final Color warning;
@@ -15,10 +16,12 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   final LinearGradient bgGradient;
   final RadialGradient meshAmber;
   final RadialGradient meshIndigo;
+  final RadialGradient meshViolet;
   final LinearGradient glassSurface;
   final LinearGradient amberTint;
   final Color glassShadowStrong;
   final Color glassShadowSubtle;
+  final Color glassTopEdgeGlow;
   final Color borderSubtle;
   final Color amberGlow10;
 
@@ -29,10 +32,12 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
     required this.bgGradient,
     required this.meshAmber,
     required this.meshIndigo,
+    required this.meshViolet,
     required this.glassSurface,
     required this.amberTint,
     required this.glassShadowStrong,
     required this.glassShadowSubtle,
+    required this.glassTopEdgeGlow,
     required this.borderSubtle,
     required this.amberGlow10,
   });
@@ -53,6 +58,7 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
       bgGradient: LinearGradient.lerp(bgGradient, other.bgGradient, t)!,
       meshAmber: RadialGradient.lerp(meshAmber, other.meshAmber, t)!,
       meshIndigo: RadialGradient.lerp(meshIndigo, other.meshIndigo, t)!,
+      meshViolet: RadialGradient.lerp(meshViolet, other.meshViolet, t)!,
       glassSurface: LinearGradient.lerp(glassSurface, other.glassSurface, t)!,
       amberTint: LinearGradient.lerp(amberTint, other.amberTint, t)!,
       glassShadowStrong: Color.lerp(
@@ -65,6 +71,11 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
         other.glassShadowSubtle,
         t,
       )!,
+      glassTopEdgeGlow: Color.lerp(
+        glassTopEdgeGlow,
+        other.glassTopEdgeGlow,
+        t,
+      )!,
       borderSubtle: Color.lerp(borderSubtle, other.borderSubtle, t)!,
       amberGlow10: Color.lerp(amberGlow10, other.amberGlow10, t)!,
     );
@@ -72,9 +83,10 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// SENTINEL DESIGN SYSTEM v4 — "Obsidian & Frost Glass"
+// SENTINEL DESIGN SYSTEM
 // ═════════════════════════════════════════════════════════════════════════════
-
+// Centralized token system for all visual properties (spacing, radii, colors).
+// Zero hardcoding is allowed in widget files; all values must map to AppTheme.
 class AppTheme {
   AppTheme._();
 
@@ -102,7 +114,6 @@ class AppTheme {
   static const double s56 = 56.0;
   static const double s64 = 64.0;
 
-  // Legacy aliases
   static const double xs = s4;
   static const double sm = s8;
   static const double md = s16;
@@ -118,7 +129,6 @@ class AppTheme {
   static const double rXl = 24.0;
   static const double rFull = 999.0;
 
-  // Legacy aliases
   static const double radiusSm = rSm;
   static const double radiusMd = rMd;
   static const double radiusLg = rLg;
@@ -144,10 +154,11 @@ class AppTheme {
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // THEME EXTENSION DEFINITIONS (The core of the upgrade)
+  // THEME EXTENSION DEFINITIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// DARK MODE: Deep cinematic aurora effects, dark cards, deep black shadows.
+  /// DARK MODE PROPERTIES
+  /// Designed with a cinematic black gradient and 3-point lighting radial meshes.
   static final _darkExt = AppColorsExtension(
     success: const Color(0xFF34D399),
     warning: const Color(0xFFF97316),
@@ -155,37 +166,43 @@ class AppTheme {
     bgGradient: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFF0A0A1E), Color(0xFF060610), Color(0xFF0E0A16)],
+      colors: [Color(0xFF0C0818), Color(0xFF080810), Color(0xFF100810)],
       stops: [0.0, 0.55, 1.0],
     ),
     meshAmber: const RadialGradient(
       center: Alignment(-0.7, -0.8),
-      radius: 1.1,
-      colors: [Color(0x16E8A020), Color(0x00E8A020)],
+      radius: 1.2,
+      colors: [Color(0x28E8A020), Color(0x00E8A020)],
     ),
     meshIndigo: const RadialGradient(
       center: Alignment(0.8, 1.0),
+      radius: 1.0,
+      colors: [Color(0x1E594FD4), Color(0x00594FD4)],
+    ),
+    meshViolet: const RadialGradient(
+      center: Alignment(-0.1, 0.0),
       radius: 0.9,
-      colors: [Color(0x10594FD4), Color(0x00594FD4)],
+      colors: [Color(0x0D7C3AED), Color(0x007C3AED)],
     ),
     glassSurface: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0x18FFFFFF), Color(0x06FFFFFF)],
+      colors: [Color(0x1AFFFFFF), Color(0x08FFFFFF)],
     ),
     amberTint: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [Color(0x22E8A020), Color(0x0AE8A020)],
     ),
-    glassShadowStrong: Colors.black.withOpacity(0.4),
-    glassShadowSubtle: Colors.black.withOpacity(0.2),
-    borderSubtle: const Color(0x14FFFFFF),
+    glassShadowStrong: Colors.black.withOpacity(0.45),
+    glassShadowSubtle: Colors.black.withOpacity(0.22),
+    glassTopEdgeGlow: const Color(0x0AFFFFFF),
+    borderSubtle: const Color(0x22FFFFFF),
     amberGlow10: const Color(0x1AE8A020),
   );
 
-  /// LIGHT MODE: Frosted pearl backgrounds, higher opacity meshes for visibility,
-  /// and beautiful, soft slate shadows (Apple-style).
+  /// LIGHT MODE PROPERTIES
+  /// Soft frosted pearl backgrounds with higher mesh opacities to maintain visibility.
   static final _lightExt = AppColorsExtension(
     success: const Color(0xFF10B981),
     warning: const Color(0xFFF59E0B),
@@ -193,48 +210,40 @@ class AppTheme {
     bgGradient: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFFF8FAFC), Color(0xFFFFFFFF), Color(0xFFF1F5F9)],
+      colors: [Color(0xFFF5F0FF), Color(0xFFF8F8FF), Color(0xFFEEF4FF)],
       stops: [0.0, 0.55, 1.0],
     ),
     meshAmber: const RadialGradient(
       center: Alignment(-0.7, -0.8),
-      radius: 1.1,
-      colors: [
-        Color(0x28E8A020),
-        Color(0x00E8A020),
-      ], // Higher opacity for light mode
+      radius: 1.2,
+      colors: [Color(0x14E8A020), Color(0x00E8A020)],
     ),
     meshIndigo: const RadialGradient(
       center: Alignment(0.8, 1.0),
+      radius: 1.0,
+      colors: [Color(0x12594FD4), Color(0x00594FD4)],
+    ),
+    meshViolet: const RadialGradient(
+      center: Alignment(-0.1, 0.0),
       radius: 0.9,
-      colors: [
-        Color(0x22594FD4),
-        Color(0x00594FD4),
-      ], // Higher opacity for light mode
+      colors: [Color(0x0F7C3AED), Color(0x007C3AED)],
     ),
     glassSurface: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0x80FFFFFF), Color(0x33FFFFFF)], // Brighter frosted glass
+      colors: [Color(0xFFFFFFFF), Color(0xFFF8FAFF)],
     ),
     amberTint: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [Color(0x33E8A020), Color(0x11E8A020)],
     ),
-    glassShadowStrong: const Color(
-      0xFF0F172A,
-    ).withOpacity(0.08), // Soft slate shadow
-    glassShadowSubtle: const Color(
-      0xFF0F172A,
-    ).withOpacity(0.04), // Very soft slate shadow
+    glassShadowStrong: Colors.black.withOpacity(0.07),
+    glassShadowSubtle: Colors.black.withOpacity(0.04),
+    glassTopEdgeGlow: Colors.transparent,
     borderSubtle: const Color(0xFFE2E8F0),
     amberGlow10: const Color(0x26E8A020),
   );
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // THEME DATA
-  // ═══════════════════════════════════════════════════════════════════════════
 
   // ── Theme Data (Dark) ──────────────────────────────────────────────────────
   static ThemeData get darkTheme => ThemeData(
@@ -247,8 +256,6 @@ class AppTheme {
       hint: const Color(0xFF3A3A58),
     ),
     extensions: [_darkExt],
-
-    // M3 Full Token Coverage
     colorScheme: const ColorScheme.dark(
       primary: amber,
       onPrimary: Color(0xFF060610),
@@ -268,7 +275,6 @@ class AppTheme {
       error: error,
       onError: Color(0xFF060610),
     ),
-
     appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -281,14 +287,12 @@ class AppTheme {
       ),
       iconTheme: const IconThemeData(color: Color(0xFF8080A0), size: 20),
     ),
-
     inputDecorationTheme: _buildInputDecoration(
       fillColor: const Color(0xFF111124),
-      borderColor: const Color(0x14FFFFFF),
+      borderColor: const Color(0x22FFFFFF),
       hintColor: const Color(0xFF3A3A58),
       labelColor: const Color(0xFF8080A0),
     ),
-
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: amber,
@@ -301,13 +305,11 @@ class AppTheme {
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     ),
-
     dividerTheme: const DividerThemeData(
-      color: Color(0x14FFFFFF),
+      color: Color(0x22FFFFFF),
       thickness: 1,
       space: 1,
     ),
-
     snackBarTheme: SnackBarThemeData(
       backgroundColor: const Color(0xFF181830),
       contentTextStyle: GoogleFonts.dmSans(
@@ -316,7 +318,7 @@ class AppTheme {
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(rMd),
-        side: const BorderSide(color: Color(0x14FFFFFF)),
+        side: const BorderSide(color: Color(0x22FFFFFF)),
       ),
       behavior: SnackBarBehavior.floating,
       elevation: 0,
@@ -327,17 +329,15 @@ class AppTheme {
   static ThemeData get lightTheme => ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
-    scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+    scaffoldBackgroundColor: const Color(0xFFF8F8FF),
     textTheme: _buildTextTheme(
       primary: const Color(0xFF0F172A),
       secondary: const Color(0xFF64748B),
       hint: const Color(0xFF94A3B8),
     ),
     extensions: [_lightExt],
-
-    // M3 Full Token Coverage
     colorScheme: const ColorScheme.light(
-      primary: amberDim, // Deeper amber for contrast
+      primary: amberDim,
       onPrimary: Colors.white,
       primaryContainer: amberLight,
       onPrimaryContainer: Color(0xFF0F172A),
@@ -355,7 +355,6 @@ class AppTheme {
       error: error,
       onError: Colors.white,
     ),
-
     appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -368,14 +367,12 @@ class AppTheme {
       ),
       iconTheme: const IconThemeData(color: Color(0xFF64748B), size: 20),
     ),
-
     inputDecorationTheme: _buildInputDecoration(
       fillColor: Colors.white,
       borderColor: const Color(0xFFE2E8F0),
       hintColor: const Color(0xFF94A3B8),
       labelColor: const Color(0xFF64748B),
     ),
-
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: amberDim,
@@ -388,15 +385,13 @@ class AppTheme {
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     ),
-
     dividerTheme: const DividerThemeData(
       color: Color(0xFFE2E8F0),
       thickness: 1,
       space: 1,
     ),
-
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: const Color(0xFF1E293B), // Slate 800
+      backgroundColor: const Color(0xFF1E293B),
       contentTextStyle: GoogleFonts.dmSans(
         color: const Color(0xFFF8F9FA),
         fontSize: 13,
@@ -411,7 +406,6 @@ class AppTheme {
   // HELPERS & DECORATORS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Dynamic Text Theme Generator
   static TextTheme _buildTextTheme({
     required Color primary,
     required Color secondary,
@@ -492,7 +486,6 @@ class AppTheme {
     ),
   );
 
-  /// Dynamic Input Decoration Generator
   static InputDecorationTheme _buildInputDecoration({
     required Color fillColor,
     required Color borderColor,
@@ -531,9 +524,10 @@ class AppTheme {
   );
 
   // ── Context-Aware Decorators ──────────────────────────────────────────────
-  // Automatically pull the correct meshes, glass, and shadows based on mode!
 
-  /// Glass card decoration — Frosted surface with responsive soft shadows
+  /// Frosted surface container decoration.
+  /// Dynamically pulls shadows and gradients from the active ThemeExtension,
+  /// implementing negative spread for tighter shadows and top-edge highlights for physical depth.
   static BoxDecoration glassCard(
     BuildContext context, {
     double? radius,
@@ -549,20 +543,27 @@ class AppTheme {
           ? [
               BoxShadow(
                 color: ext.glassShadowStrong,
-                blurRadius: 32,
-                offset: const Offset(0, 8),
+                blurRadius: 40,
+                offset: const Offset(0, 12),
+                spreadRadius: -4,
               ),
               BoxShadow(
                 color: ext.glassShadowSubtle,
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: ext.glassTopEdgeGlow,
+                blurRadius: 0,
+                offset: const Offset(0, -1),
+                spreadRadius: 0,
               ),
             ]
           : null,
     );
   }
 
-  /// Amber glow container — Context-aware badge background
+  /// Context-aware badge background utilizing ambient amber glow properties.
   static BoxDecoration amberIconBox(
     BuildContext context, {
     double radius = rMd,

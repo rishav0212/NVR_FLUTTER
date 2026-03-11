@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/app_haptics.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../bloc/auth_bloc.dart';
 
+/// Presentation layer for password recovery.
+///
+/// Collects user email and dispatches recovery events to the AuthBloc.
+/// Listens to Bloc state to provide transient UI feedback (snackbars, haptics, shakes).
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
 
@@ -14,6 +19,7 @@ class ForgotPasswordPage extends StatefulWidget {
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final _formKey = GlobalKey<FormState>();
+  final _shakeKey = GlobalKey<ShakeWidgetState>();
   final _emailController = TextEditingController();
 
   @override
@@ -22,9 +28,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     super.dispose();
   }
 
+  /// Validates the form before dispatching the recovery event.
   void _submit() {
     FocusScope.of(context).unfocus();
     if (_formKey.currentState?.validate() ?? false) {
+      AppHaptics.medium();
       context.read<AuthBloc>().add(
         ForgotPasswordRequested(_emailController.text.trim()),
       );
@@ -34,12 +42,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Dynamic background color from Theme
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            AppHaptics.light();
+            context.pop();
+          },
         ),
       ),
       body: PageBackground(
@@ -47,11 +57,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           onTap: () => FocusScope.of(context).unfocus(),
           child: BlocConsumer<AuthBloc, AuthState>(
             listener: (context, state) {
-              if (state is AuthActionSuccess) {
+              if (state is AuthError) {
+                AppHaptics.error();
+                _shakeKey.currentState?.shake();
+              } else if (state is AuthActionSuccess) {
+                AppHaptics.success();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(state.message),
-                    // Pull success color dynamically
                     backgroundColor: Theme.of(
                       context,
                     ).extension<AppColorsExtension>()!.success,
@@ -83,7 +96,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                               child: Container(
                                 width: 48,
                                 height: 48,
-                                // Pass context so the icon box perfectly matches light/dark theme
                                 decoration: AppTheme.amberIconBox(
                                   context,
                                   radius: AppTheme.rMd,
@@ -122,22 +134,26 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
                             AnimatedEntrance(
                               delay: const Duration(milliseconds: 300),
-                              child: Form(
-                                key: _formKey,
-                                child: AppTextField(
-                                  label: 'Email',
-                                  controller: _emailController,
-                                  keyboardType: TextInputType.emailAddress,
-                                  prefixIcon: Icons.mail_outline_rounded,
-                                  textInputAction: TextInputAction.done,
-                                  onSubmitted: (_) => _submit(),
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty)
-                                      return 'Email is required';
-                                    if (!v.contains('@'))
-                                      return 'Enter a valid email';
-                                    return null;
-                                  },
+                              child: ShakeWidget(
+                                key: _shakeKey,
+                                child: Form(
+                                  key: _formKey,
+                                  child: AppTextField(
+                                    label: 'Email',
+                                    controller: _emailController,
+                                    keyboardType: TextInputType.emailAddress,
+                                    prefixIcon: Icons.mail_outline_rounded,
+                                    textInputAction: TextInputAction.done,
+                                    autofocus: true,
+                                    onSubmitted: (_) => _submit(),
+                                    validator: (v) {
+                                      if (v == null || v.isEmpty)
+                                        return 'Email is required';
+                                      if (!v.contains('@'))
+                                        return 'Enter a valid email';
+                                      return null;
+                                    },
+                                  ),
                                 ),
                               ),
                             ),

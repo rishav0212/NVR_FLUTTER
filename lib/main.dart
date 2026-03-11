@@ -1,23 +1,23 @@
-import 'dart:async'; // <-- ADDED for StreamSubscription
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:app_links/app_links.dart'; // <-- ADDED for Google Deep Linking
+import 'package:app_links/app_links.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'injection_container.dart';
+import 'shared/widgets/gradient_text.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. MUST BE FIRST: Load .env so ApiClient can successfully read the baseUrl
+  // Environment variables must load first to provide API base URLs
+  // before the dependency injection container attempts to instantiate the ApiClient.
   await dotenv.load(fileName: ".env");
-
-  // 2. THEN initialize Dependency Injection
   await initDi();
 
   SystemChrome.setPreferredOrientations([
@@ -25,7 +25,8 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Make system bars transparent so the theme handles the background dynamically
+  // Configure system UI bars to be transparent, allowing the app's dynamic
+  // mesh backgrounds to extend fully to the device edges seamlessly.
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -40,17 +41,21 @@ void main() async {
 class NvrApp extends StatefulWidget {
   const NvrApp({super.key});
 
+  /// Global theme mode notifier.
+  /// Allows the entire application to reactively toggle between light/dark
+  /// modes without requiring a full bloc/provider state rebuild for a single property.
+  static final themeMode = ValueNotifier<ThemeMode>(ThemeMode.system);
+
   @override
   State<NvrApp> createState() => _NvrAppState();
 }
 
 class _NvrAppState extends State<NvrApp> {
-  // AppRouter depends on AuthBloc — create both once here so GoRouter's
-  // refreshListenable and the BlocProvider share the exact same instance.
+  // AppRouter depends on AuthBloc. Instantiating them here ensures GoRouter's
+  // refreshListenable and the BlocProvider share the exact same instance across rebuilds.
   late final AuthBloc _authBloc;
   late final AppRouter _appRouter;
 
-  // Deep Link variables for Google OAuth
   late final AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSubscription;
 
@@ -59,13 +64,11 @@ class _NvrAppState extends State<NvrApp> {
     super.initState();
     _authBloc = getIt<AuthBloc>()..add(AppStarted());
     _appRouter = AppRouter(_authBloc);
-
-    // Initialize Google Deep Link listener
     _initDeepLinks();
   }
 
-  // Restored native deep linking.
-  // Intercepts nvr://auth/callback?token=... and logs the user in!
+  /// Initializes deep linking to intercept OAuth callbacks from external browsers.
+  /// When a user completes Google Sign-In, the system routes the redirect URI back here.
   void _initDeepLinks() {
     _appLinks = AppLinks();
     _linkSubscription = _appLinks.uriLinkStream.listen((uri) {
@@ -83,7 +86,7 @@ class _NvrAppState extends State<NvrApp> {
 
   @override
   void dispose() {
-    _linkSubscription?.cancel(); // Clean up deep link listener
+    _linkSubscription?.cancel();
     _authBloc.close();
     super.dispose();
   }
@@ -92,16 +95,20 @@ class _NvrAppState extends State<NvrApp> {
   Widget build(BuildContext context) {
     return BlocProvider<AuthBloc>.value(
       value: _authBloc,
-      child: MaterialApp.router(
-        title: AppConstants.appName,
-        debugShowCheckedModeBanner: false,
+      child: ValueListenableBuilder<ThemeMode>(
+        valueListenable: NvrApp.themeMode,
+        builder: (context, mode, child) {
+          return MaterialApp.router(
+            title: AppConstants.appName,
+            debugShowCheckedModeBanner: false,
 
-        // Restored dynamic System Light/Dark Mode switching
-        themeMode: ThemeMode.system,
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
+            themeMode: mode,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
 
-        routerConfig: _appRouter.router,
+            routerConfig: _appRouter.router,
+          );
+        },
       ),
     );
   }
@@ -111,9 +118,9 @@ class _NvrAppState extends State<NvrApp> {
 // SPLASH SCREEN
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Public — imported by app_router.dart for the splash route.
-// Shown while AuthBloc restores session from secure storage on app start.
-//
+// Initial landing view displayed while AuthBloc resolves the secure storage session.
+// Uses explicit animation controllers to handle graceful scaling/fades before GoRouter
+// initiates its first navigation redirect.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -150,7 +157,6 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Pulls the active background design securely based on light/dark mode
     final ext = Theme.of(context).extension<AppColorsExtension>()!;
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -158,10 +164,8 @@ class _SplashScreenState extends State<SplashScreen>
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
-          // 1. Core gradient background (Aurora for dark, Pearl for light)
           Container(decoration: BoxDecoration(gradient: ext.bgGradient)),
 
-          // 2. Mesh background blobs (Dynamically adapts to theme)
           Positioned(
             top: -150,
             left: -150,
@@ -187,7 +191,6 @@ class _SplashScreenState extends State<SplashScreen>
             ),
           ),
 
-          // 3. Splash Content
           Center(
             child: AnimatedBuilder(
               animation: _ctrl,
@@ -218,20 +221,27 @@ class _SplashScreenState extends State<SplashScreen>
                       size: 32,
                     ),
                   ),
-                  const SizedBox(height: AppTheme.s20),
-                  Text(
+                  const SizedBox(height: AppTheme.s24),
+
+                  GradientText(
                     AppConstants.appName,
                     style: Theme.of(
                       context,
                     ).textTheme.displayMedium?.copyWith(letterSpacing: -0.5),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFF0F0FA), Color(0xFF6060A0)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
                   ),
+
                   const SizedBox(height: AppTheme.s48),
                   SizedBox(
-                    width: 20,
-                    height: 20,
+                    width: 24,
+                    height: 24,
                     child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      color: colorScheme.primary.withOpacity(0.6),
+                      strokeWidth: 2.0,
+                      color: colorScheme.primary.withOpacity(0.8),
                     ),
                   ),
                 ],

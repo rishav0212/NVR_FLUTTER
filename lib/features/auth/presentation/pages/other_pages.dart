@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/app_haptics.dart';
+import '../../../../shared/widgets/accent_header.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
+import '../../../../main.dart';
 import '../bloc/auth_bloc.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // COMPLETE PROFILE PAGE
 // ═════════════════════════════════════════════════════════════════════════════
-
+// Presented immediately post-registration if the user OAuth payload did not
+// include a required phone number.
 class CompleteProfilePage extends StatefulWidget {
   const CompleteProfilePage({super.key});
 
@@ -18,6 +22,7 @@ class CompleteProfilePage extends StatefulWidget {
 
 class _CompleteProfilePageState extends State<CompleteProfilePage> {
   final _formKey = GlobalKey<FormState>();
+  final _shakeKey = GlobalKey<ShakeWidgetState>();
   final _phoneController = TextEditingController();
   final _nameController = TextEditingController();
 
@@ -40,6 +45,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   void _submit() {
     FocusScope.of(context).unfocus();
     if (_formKey.currentState?.validate() ?? false) {
+      AppHaptics.medium();
       context.read<AuthBloc>().add(
         CompleteProfileRequested(
           phoneNumber: _phoneController.text.trim(),
@@ -56,7 +62,15 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: PageBackground(
-        child: BlocBuilder<AuthBloc, AuthState>(
+        child: BlocConsumer<AuthBloc, AuthState>(
+          listener: (context, state) {
+            if (state is AuthError) {
+              AppHaptics.error();
+              _shakeKey.currentState?.shake();
+            } else if (state is AuthAuthenticated) {
+              AppHaptics.success();
+            }
+          },
           builder: (context, state) {
             final isLoading = state is AuthLoading;
             final errorMessage = state is AuthError ? state.message : null;
@@ -68,7 +82,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: AppTheme.s48),
-
                     AnimatedEntrance(
                       delay: Duration.zero,
                       child: Container(
@@ -84,7 +97,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                     ),
 
                     const SizedBox(height: AppTheme.s24),
-
                     AnimatedEntrance(
                       delay: const Duration(milliseconds: 80),
                       child: Column(
@@ -104,36 +116,39 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                     ),
 
                     const SizedBox(height: AppTheme.s32),
-
                     AnimatedEntrance(
                       delay: const Duration(milliseconds: 160),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          children: [
-                            AppTextField(
-                              label: 'Full Name',
-                              controller: _nameController,
-                              prefixIcon: Icons.person_outline_rounded,
-                              textInputAction: TextInputAction.next,
-                            ),
-                            const SizedBox(height: AppTheme.s12),
-                            AppTextField(
-                              label: 'Phone Number',
-                              controller: _phoneController,
-                              keyboardType: TextInputType.phone,
-                              prefixIcon: Icons.phone_outlined,
-                              textInputAction: TextInputAction.done,
-                              onSubmitted: (_) => _submit(),
-                              validator: (v) {
-                                if (v == null || v.isEmpty)
-                                  return 'Phone number is required';
-                                if (v.replaceAll(RegExp(r'\D'), '').length < 7)
-                                  return 'Enter a valid phone number';
-                                return null;
-                              },
-                            ),
-                          ],
+                      child: ShakeWidget(
+                        key: _shakeKey,
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            children: [
+                              AppTextField(
+                                label: 'Full Name',
+                                controller: _nameController,
+                                prefixIcon: Icons.person_outline_rounded,
+                                textInputAction: TextInputAction.next,
+                              ),
+                              const SizedBox(height: AppTheme.s12),
+                              AppTextField(
+                                label: 'Phone Number',
+                                controller: _phoneController,
+                                keyboardType: TextInputType.phone,
+                                prefixIcon: Icons.phone_outlined,
+                                textInputAction: TextInputAction.done,
+                                onSubmitted: (_) => _submit(),
+                                validator: (v) {
+                                  if (v == null || v.isEmpty)
+                                    return 'Phone number is required';
+                                  if (v.replaceAll(RegExp(r'\D'), '').length <
+                                      7)
+                                    return 'Enter a valid phone number';
+                                  return null;
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -147,7 +162,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                     ],
 
                     const Spacer(),
-
                     AnimatedEntrance(
                       delay: const Duration(milliseconds: 240),
                       child: PrimaryButton(
@@ -172,8 +186,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
 // ═════════════════════════════════════════════════════════════════════════════
 // HOME PAGE
 // ═════════════════════════════════════════════════════════════════════════════
-
-// ✅ StatefulWidget — required for initState/dispose lifecycle methods
+// Stateful component necessary for managing hardware device APIs (Wakelock).
+// Ensures the screen does not auto-dim while monitoring live camera feeds.
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -185,18 +199,19 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    WakelockPlus.enable(); // ✅ Called once on mount — NOT in build()
+    // Wakelock must be bound to the lifecycle logic, preventing memory leaks
+    // or unexpected battery drain when routing to background layers.
+    WakelockPlus.enable();
   }
 
   @override
   void dispose() {
-    WakelockPlus.disable(); // ✅ Released when navigating away
+    WakelockPlus.disable();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // ✅ NO WakelockPlus here — build() is for UI only
     final state = context.watch<AuthBloc>().state;
     final user = state is AuthAuthenticated ? state.user : null;
 
@@ -226,10 +241,7 @@ class _HomePageState extends State<HomePage> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Cameras',
-                              style: Theme.of(context).textTheme.headlineMedium,
-                            ),
+                            const AccentHeader(text: 'Cameras'),
                             TextButton.icon(
                               onPressed: null,
                               icon: const Icon(Icons.add_rounded, size: 16),
@@ -306,6 +318,24 @@ class _HomeTopBar extends StatelessWidget {
             delay: const Duration(milliseconds: 80),
             child: Row(
               children: [
+                IconButton(
+                  icon: Icon(
+                    Theme.of(context).brightness == Brightness.dark
+                        ? Icons.light_mode_rounded
+                        : Icons.dark_mode_rounded,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  onPressed: () {
+                    AppHaptics.selection();
+                    // Modifying the static ValueNotifier triggers a global UI repaint
+                    // at the top-level MaterialApp, instantly swapping theme extensions.
+                    NvrApp.themeMode.value =
+                        Theme.of(context).brightness == Brightness.dark
+                        ? ThemeMode.light
+                        : ThemeMode.dark;
+                  },
+                ),
                 _AvatarButton(initials: _initials(userName)),
                 const SizedBox(width: AppTheme.s4),
                 IconButton(
@@ -314,8 +344,10 @@ class _HomeTopBar extends StatelessWidget {
                     size: 18,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                  onPressed: () =>
-                      context.read<AuthBloc>().add(LogoutRequested()),
+                  onPressed: () {
+                    AppHaptics.medium();
+                    context.read<AuthBloc>().add(LogoutRequested());
+                  },
                   tooltip: 'Sign out',
                 ),
               ],
@@ -400,8 +432,42 @@ class _StatusRow extends StatelessWidget {
   }
 }
 
-class _EmptyStateCard extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+// EMPTY STATE CARD
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Displayed when the user has zero registered NVR instances.
+// Includes an infinite, ambient breathing animation on the icon container
+// to maintain a feeling of system activity even when data is empty.
+class _EmptyStateCard extends StatefulWidget {
   const _EmptyStateCard();
+  @override
+  State<_EmptyStateCard> createState() => _EmptyStateCardState();
+}
+
+class _EmptyStateCardState extends State<_EmptyStateCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _breathe;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _breathe = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
+    _scale = Tween<double>(
+      begin: 0.95,
+      end: 1.05,
+    ).animate(CurvedAnimation(parent: _breathe, curve: Curves.easeInOutSine));
+  }
+
+  @override
+  void dispose() {
+    _breathe.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -412,14 +478,19 @@ class _EmptyStateCard extends StatelessWidget {
       decoration: AppTheme.glassCard(context),
       child: Column(
         children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: AppTheme.amberIconBox(context, radius: AppTheme.rLg),
-            child: const Icon(
-              Icons.videocam_off_outlined,
-              color: AppTheme.amber,
-              size: 28,
+          AnimatedBuilder(
+            animation: _scale,
+            builder: (_, child) =>
+                Transform.scale(scale: _scale.value, child: child),
+            child: Container(
+              width: 64,
+              height: 64,
+              decoration: AppTheme.amberIconBox(context, radius: AppTheme.rLg),
+              child: const Icon(
+                Icons.videocam_off_outlined,
+                color: AppTheme.amber,
+                size: 28,
+              ),
             ),
           ),
           const SizedBox(height: AppTheme.s20),

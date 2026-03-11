@@ -1,19 +1,22 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import 'noise_overlay.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
-// SENTINEL SHARED WIDGETS v4
+// 
 // ═════════════════════════════════════════════════════════════════════════════
 //
 // Every reusable component lives here. No hardcoded values — all from AppTheme.
 //
 // Contents:
-//   • AnimatedEntrance     — staggered entrance animation
-//   • PageBackground       — dynamic mesh gradient background wrapper
-//   • AppWordmark          — brand logo mark
-//   • GlassCard            — frosted glass container
-//   • PrimaryButton        — amber gradient with press animation
+//   • AnimatedEntrance     — staggered entrance (slide + fade)
+//   • ShakeWidget          — form shake on auth error (use GlobalKey)
+//   • PageBackground       — mesh gradient + noise + violet blob
+//   • AppWordmark          — brand logo mark (Hero-aware)
+//   • GlassCard            — frosted glass container (light/dark aware)
+//   • PrimaryButton        — amber gradient with press animation + haptics
 //   • SecondaryButton      — outlined ghost button
 //   • GoogleSignInButton   — Google branded outlined button
 //   • AppTextField         — input with animated focus ring
@@ -21,27 +24,17 @@ import '../../core/theme/app_theme.dart';
 //   • ErrorBanner          — inline error display
 //   • SuccessBanner        — inline success display
 //   • PulsingDot           — animated status indicator
+//   • ShimmerBox           — loading skeleton placeholder
 // ═════════════════════════════════════════════════════════════════════════════
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ANIMATED ENTRANCE
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// WHY THE OLD VERSION WAS "STICKY/STUCK":
-//
-//   OLD: StatelessWidget + TweenAnimationBuilder
-//   ┌─ Bug 1: delay was accepted but NEVER applied — all elements animated
-//   │         simultaneously with zero stagger effect.
-//   └─ Bug 2: TweenAnimationBuilder restarts on EVERY parent rebuild —
-//             BlocBuilder rebuilds during loading/error transitions,
-//             causing mid-transition resets (the "stuck" snap-back).
-//
-//   NEW: StatefulWidget + AnimationController
-//   ┌─ Fix 1: Timer(delay, ...) in initState() — delay is truly applied
-//   ├─ Fix 2: AnimationController fires ONCE on mount, survives rebuilds
-//   ├─ Fix 3: Two parallel tweens (opacity + slide) via Interval curves
-//   │         give a richer, more cinematic feel
-//   └─ Fix 4: Timer is cancelled in dispose() — no memory leaks
+// WHY THIS EXISTS:
+//   Provides a staggered, cinematic entrance (fade + slide up).
+//   Uses AnimationController in initState to prevent the "stuck" reloading
+//   bug that occurs when using TweenAnimationBuilder inside a BlocBuilder.
 //
 class AnimatedEntrance extends StatefulWidget {
   final Widget child;
@@ -123,6 +116,65 @@ class _AnimatedEntranceState extends State<AnimatedEntrance>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SHAKE WIDGET
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Wraps a form and shakes it horizontally to indicate an error (e.g., wrong password).
+// Triggered via a GlobalKey<ShakeWidgetState>.
+//
+class ShakeWidget extends StatefulWidget {
+  final Widget child;
+  const ShakeWidget({super.key, required this.child});
+
+  @override
+  State<ShakeWidget> createState() => ShakeWidgetState();
+}
+
+class ShakeWidgetState extends State<ShakeWidget>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _anim = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: _ShakeCurve()));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void shake() {
+    _ctrl.forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, child) =>
+          Transform.translate(offset: Offset(_anim.value * 8, 0), child: child),
+      child: widget.child,
+    );
+  }
+}
+
+class _ShakeCurve extends Curve {
+  @override
+  double transformInternal(double t) => math.sin(t * math.pi * 4) * (1 - t);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PAGE BACKGROUND
 // ─────────────────────────────────────────────────────────────────────────────
 //
@@ -130,12 +182,8 @@ class _AnimatedEntranceState extends State<AnimatedEntrance>
 //   Layer 0: base gradient (void-black for dark mode, pearl for light mode)
 //   Layer 1: amber radial bleed — top-left (warmth, security light)
 //   Layer 2: indigo radial bleed — bottom-right (depth, cool contrast)
-//   Layer 3: content
-//
-// Retrieves active background meshes dynamically via ThemeExtension for
-// seamless Light/Dark mode support.
-//
-// Usage: wrap your SafeArea (or child) with this, not the Scaffold.
+//   Layer 3: violet radial bleed — right-center (completes 3-point lighting)
+//   Layer 4: Noise overlay (film grain texture for premium depth)
 //
 class PageBackground extends StatelessWidget {
   final Widget child;
@@ -143,41 +191,53 @@ class PageBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Pulls the active background design securely based on light/dark mode
     final ext = Theme.of(context).extension<AppColorsExtension>()!;
 
-    return Stack(
-      children: [
-        // The core gradient background (Aurora for dark, Pearl for light)
-        Container(decoration: BoxDecoration(gradient: ext.bgGradient)),
-        // Top Amber Mesh Blob
-        Positioned(
-          top: -150,
-          left: -150,
-          width: 500,
-          height: 500,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: ext.meshAmber,
-              shape: BoxShape.circle,
+    // Wrap the entire background stack with the film grain noise
+    return NoiseOverlay(
+      opacity: Theme.of(context).brightness == Brightness.dark ? 0.04 : 0.015,
+      child: Stack(
+        children: [
+          Container(decoration: BoxDecoration(gradient: ext.bgGradient)),
+          Positioned(
+            top: -150,
+            left: -150,
+            width: 500,
+            height: 500,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: ext.meshAmber,
+                shape: BoxShape.circle,
+              ),
             ),
           ),
-        ),
-        // Bottom Indigo Mesh Blob
-        Positioned(
-          bottom: -100,
-          right: -100,
-          width: 400,
-          height: 400,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: ext.meshIndigo,
-              shape: BoxShape.circle,
+          Positioned(
+            bottom: -100,
+            right: -100,
+            width: 400,
+            height: 400,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: ext.meshIndigo,
+                shape: BoxShape.circle,
+              ),
             ),
           ),
-        ),
-        child, // Rest of the page content
-      ],
+          Positioned(
+            top: 200,
+            right: -50,
+            width: 350,
+            height: 350,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: ext.meshViolet,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
     );
   }
 }
@@ -187,7 +247,7 @@ class PageBackground extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // Brand mark used on all auth screens.
-// Amber gradient icon box + Outfit wordmark + amber pulse dot.
+// Wrapped in a Hero widget to smoothly animate from the splash screen.
 //
 class AppWordmark extends StatelessWidget {
   final double size;
@@ -196,32 +256,33 @@ class AppWordmark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Dynamically accesses the proper high-contrast icon color for the theme
     final onPrimary = Theme.of(context).colorScheme.onPrimary;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Icon container with amber gradient + dynamic glow
-        Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            gradient: AppTheme.amberBtn,
-            borderRadius: BorderRadius.circular(AppTheme.rMd),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.amber.withOpacity(0.20),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Icon(
-            Icons.videocam_rounded,
-            color: onPrimary,
-            size: size * 0.5,
+        Hero(
+          tag: 'logo_icon',
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              gradient: AppTheme.amberBtn,
+              borderRadius: BorderRadius.circular(AppTheme.rMd),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.amber.withOpacity(0.20),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.videocam_rounded,
+              color: onPrimary,
+              size: size * 0.5,
+            ),
           ),
         ),
         const SizedBox(width: AppTheme.s12),
@@ -233,7 +294,6 @@ class AppWordmark extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppTheme.s4),
-        // Amber pulse dot — floated to top-right of wordmark
         Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: Container(
@@ -260,10 +320,7 @@ class AppWordmark extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // GLASS CARD
 // ─────────────────────────────────────────────────────────────────────────────
-//
-// Frosted glass container for grouping related content.
-// Utilizes context to inject the theme-appropriate soft shadows and border opacities.
-//
+
 class GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -283,7 +340,7 @@ class GlassCard extends StatelessWidget {
     return Container(
       padding: padding ?? const EdgeInsets.all(AppTheme.s20),
       decoration: AppTheme.glassCard(
-        context, // Injects active ThemeExtension for light/dark properties
+        context,
         radius: borderRadius ?? AppTheme.rLg,
         borderColor: borderColor,
       ),
@@ -295,12 +352,7 @@ class GlassCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // PRIMARY BUTTON
 // ─────────────────────────────────────────────────────────────────────────────
-//
-// Amber gradient button with:
-//   • Press scale (0.97) via AnimationController — feels physical
-//   • Glow shadow that disappears when loading/disabled
-//   • Loading spinner adapting to context onPrimary color
-//
+
 class PrimaryButton extends StatefulWidget {
   final String label;
   final VoidCallback? onPressed;
@@ -542,7 +594,6 @@ class GoogleSignInButton extends StatelessWidget {
   }
 }
 
-/// Google "G" glyph rendered with colored text spans — no SVG asset needed.
 class _GoogleGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -567,11 +618,7 @@ class _GoogleGlyph extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // APP TEXT FIELD
 // ─────────────────────────────────────────────────────────────────────────────
-//
-// Enhanced input field:
-//   • AnimatedSwitcher on the visibility toggle icon
-//   • Subtle amber glow container on focus dynamically sourced from ThemeExtension
-//
+
 class AppTextField extends StatefulWidget {
   final String label;
   final String? hint;
@@ -821,12 +868,9 @@ class SuccessBanner extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PULSING DOT — animated status indicator
+// PULSING DOT
 // ─────────────────────────────────────────────────────────────────────────────
-//
-// Defaults dynamically to the active theme's success status color unless
-// explicitly provided.
-//
+
 class PulsingDot extends StatefulWidget {
   final Color? color;
   final double size;
@@ -869,7 +913,6 @@ class _PulsingDotState extends State<PulsingDot>
 
   @override
   Widget build(BuildContext context) {
-    // Dynamically fallback to the ThemeExtension success color if none is passed
     final activeColor =
         widget.color ??
         Theme.of(context).extension<AppColorsExtension>()!.success;
@@ -897,6 +940,87 @@ class _PulsingDotState extends State<PulsingDot>
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHIMMER BOX
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Animated skeleton loader for states where data is still fetching.
+// Replaces static empty boxes with a moving glare effect.
+//
+class ShimmerBox extends StatefulWidget {
+  final double width;
+  final double? height;
+  final double borderRadius;
+
+  const ShimmerBox({
+    super.key,
+    required this.width,
+    this.height,
+    this.borderRadius = AppTheme.rSm,
+  });
+
+  @override
+  State<ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<ShimmerBox>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _shimmer;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat();
+    _shimmer = Tween<double>(
+      begin: -2.0,
+      end: 2.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOutSine));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return AnimatedBuilder(
+      animation: _shimmer,
+      builder: (_, __) {
+        return Container(
+          width: widget.width,
+          height: widget.height ?? 16,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.borderRadius),
+            gradient: LinearGradient(
+              begin: Alignment(_shimmer.value - 1, 0),
+              end: Alignment(_shimmer.value + 1, 0),
+              colors: isDark
+                  ? [
+                      const Color(0xFF1A1A30),
+                      const Color(0xFF2A2A48),
+                      const Color(0xFF1A1A30),
+                    ]
+                  : [
+                      const Color(0xFFE8E8F0),
+                      const Color(0xFFF4F4FC),
+                      const Color(0xFFE8E8F0),
+                    ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
