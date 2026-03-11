@@ -31,7 +31,7 @@ Future<void> initDi() async {
 
   // 4. BLoCs
   // BLoCs are registered as Factory (creates a new instance if needed)
-  getIt.registerFactory<AuthBloc>(
+  getIt.registerLazySingleton<AuthBloc>(
     () => AuthBloc(getIt<AuthRepository>()),
   );
 }

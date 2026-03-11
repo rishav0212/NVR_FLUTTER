@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:url_launcher/url_launcher.dart'; // <--- Added for Google Auth
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../bloc/auth_bloc.dart';
@@ -8,13 +8,9 @@ import '../../../../core/constants/app_constants.dart';
 
 /// Registration page.
 ///
-/// Phone number is optional here — the user is taken to CompleteProfilePage
-/// after registration if they skip it. This reduces sign-up friction while
-/// still collecting the data we need before they can use the app fully.
-/// 
-/// Updates: Implemented CustomScrollView with SliverFillRemaining to guarantee
-/// the UI never overflows when the keyboard appears. Added cascading fade/slide
-/// animations for a premium, smooth entrance feel. Fixed Google sign-in launching.
+/// Navigation is fully handled by GoRouter watching AuthBloc state in
+/// app_router.dart — no manual Navigator calls needed here at all.
+/// BlocBuilder (not BlocConsumer) — GoRouter's redirect handles routing.
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -40,9 +36,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   void _submit() {
-    // Dismiss keyboard on submit for a cleaner loading state UX
     FocusScope.of(context).unfocus();
-    
     if (_formKey.currentState?.validate() ?? false) {
       context.read<AuthBloc>().add(
         RegisterRequested(
@@ -59,9 +53,9 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Future<void> _signInWithGoogle() async {
     setState(() => _isGoogleLoading = true);
-    final Uri url = Uri.parse('${AppConstants.baseUrl}${AppConstants.googleAuthEndpoint}');
-    
-    // Smoothly opens the system browser to handle Google Auth
+    final Uri url = Uri.parse(
+      '${AppConstants.baseUrl}${AppConstants.googleAuthEndpoint}',
+    );
     try {
       if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
         throw 'Could not launch browser';
@@ -86,53 +80,40 @@ class _RegisterPageState extends State<RegisterPage> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      // GestureDetector at the root level catches taps outside text fields
-      // and dismisses the keyboard, providing a polished native feel.
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
-        child: BlocConsumer<AuthBloc, AuthState>(
-          listener: (context, state) {
-            if (state is AuthAuthenticated) {
-              // Registration succeeded — go to home, clear entire nav stack
-              Navigator.of(
-                context,
-              ).pushNamedAndRemoveUntil(AppConstants.homeRoute, (route) => false);
-            } else if (state is AuthProfileIncomplete) {
-              // Registered but skipped phone number — go to complete profile
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                AppConstants.completeProfileRoute,
-                (route) => false,
-              );
-            }
-          },
+
+        // ✅ BlocBuilder — NOT BlocConsumer.
+        // GoRouter in app_router.dart listens to AuthBloc state changes via
+        // _GoRouterRefreshStream and calls redirect() automatically.
+        // When state becomes AuthAuthenticated → redirect sends to /home.
+        // When state becomes AuthProfileIncomplete → redirect sends to /complete-profile.
+        // Manual Navigator calls here would conflict with GoRouter and cause crashes.
+        child: BlocBuilder<AuthBloc, AuthState>(
           builder: (context, state) {
             final isLoading = state is AuthLoading;
             final errorMessage = state is AuthError ? state.message : null;
 
             return SafeArea(
-              // CustomScrollView replaces SingleChildScrollView + fixed SizedBox height.
-              // This is the optimal way to handle forms in Flutter. It allows content 
-              // to be centered vertically on large screens, but become scrollable 
-              // automatically when the keyboard intrudes.
               child: CustomScrollView(
                 slivers: [
                   SliverFillRemaining(
                     hasScrollBody: false,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppTheme.lg),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.lg,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: AppTheme.sm),
-                          
-                          // ── Wordmark with Animation ────────────────────────
+
                           AnimatedEntrance(
                             delay: const Duration(milliseconds: 100),
                             child: const AppWordmark(),
                           ),
                           const SizedBox(height: AppTheme.xl),
 
-                          // ── Headers with Animation ─────────────────────────
                           AnimatedEntrance(
                             delay: const Duration(milliseconds: 200),
                             child: Column(
@@ -140,7 +121,9 @@ class _RegisterPageState extends State<RegisterPage> {
                               children: [
                                 Text(
                                   'Create account',
-                                  style: Theme.of(context).textTheme.headlineLarge,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineLarge,
                                 ),
                                 const SizedBox(height: AppTheme.xs),
                                 Text(
@@ -152,7 +135,6 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                           const SizedBox(height: AppTheme.xl),
 
-                          // ── Form with Animation ────────────────────────────
                           AnimatedEntrance(
                             delay: const Duration(milliseconds: 300),
                             child: Form(
@@ -166,7 +148,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                     validator: (v) {
                                       if (v == null || v.isEmpty)
                                         return 'Name is required';
-                                      if (v.length < 2) return 'Name is too short';
+                                      if (v.length < 2)
+                                        return 'Name is too short';
                                       return null;
                                     },
                                   ),
@@ -179,7 +162,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                     validator: (v) {
                                       if (v == null || v.isEmpty)
                                         return 'Email is required';
-                                      if (!v.contains('@')) return 'Enter a valid email';
+                                      if (!v.contains('@'))
+                                        return 'Enter a valid email';
                                       return null;
                                     },
                                   ),
@@ -198,8 +182,6 @@ class _RegisterPageState extends State<RegisterPage> {
                                     },
                                   ),
                                   const SizedBox(height: AppTheme.md),
-
-                                  // ── Phone (optional) ──────────────────────────────
                                   AppTextField(
                                     label: 'Phone Number (optional)',
                                     controller: _phoneController,
@@ -208,8 +190,6 @@ class _RegisterPageState extends State<RegisterPage> {
                                     textInputAction: TextInputAction.done,
                                     onSubmitted: (_) => _submit(),
                                   ),
-
-                                  // ── Phone skip hint ───────────────────────────────
                                   Padding(
                                     padding: const EdgeInsets.only(
                                       top: AppTheme.xs,
@@ -219,7 +199,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                       alignment: Alignment.centerLeft,
                                       child: Text(
                                         'You can add this later',
-                                        style: Theme.of(context).textTheme.bodySmall,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
                                       ),
                                     ),
                                   ),
@@ -228,7 +210,6 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
 
-                          // ── Error Banner ───────────────────────────────────
                           if (errorMessage != null) ...[
                             const SizedBox(height: AppTheme.md),
                             AnimatedEntrance(
@@ -239,7 +220,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
                           const SizedBox(height: AppTheme.xl),
 
-                          // ── Primary action ──────────────────────────────────
                           AnimatedEntrance(
                             delay: const Duration(milliseconds: 400),
                             child: PrimaryButton(
@@ -251,15 +231,12 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
 
                           const SizedBox(height: AppTheme.lg),
-                          
                           AnimatedEntrance(
                             delay: const Duration(milliseconds: 500),
                             child: const LabeledDivider(label: 'or'),
                           ),
-                          
                           const SizedBox(height: AppTheme.lg),
 
-                          // ── Google ──────────────────────────────────────────
                           AnimatedEntrance(
                             delay: const Duration(milliseconds: 600),
                             child: GoogleSignInButton(
@@ -268,12 +245,9 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
 
-                          // Spacer pushes the bottom section down, allowing the 
-                          // form to stay centered above it.
                           const Spacer(),
                           const SizedBox(height: AppTheme.xl),
 
-                          // ── Login link ──────────────────────────────────────
                           AnimatedEntrance(
                             delay: const Duration(milliseconds: 700),
                             child: Row(
@@ -288,7 +262,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                   style: TextButton.styleFrom(
                                     padding: EdgeInsets.zero,
                                     minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                   child: const Text('Sign in'),
                                 ),
