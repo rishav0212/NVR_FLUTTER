@@ -7,9 +7,8 @@ import 'package:flutter/material.dart';
 //
 // WHY THIS EXISTS:
 //   Dark gradients without noise look like flat paint.
-//   Every premium dark UI (Raycast, Arc, Linear, Vercel) uses a film grain
-//   layer. It's nearly invisible individually but transforms the perceived
-//   quality of the entire background — dark surfaces gain tactile depth.
+//   Every premium UI uses a film grain layer. It's nearly invisible individually
+//   but transforms the perceived quality of the entire background — surfaces gain tactile depth.
 //
 // HOW IT WORKS:
 //   CustomPainter draws ~8000 semi-transparent dots at a FIXED random seed.
@@ -34,6 +33,9 @@ class NoiseOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Automatically detect the theme to determine the grain color
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Stack(
       children: [
         child,
@@ -42,7 +44,9 @@ class NoiseOverlay extends StatelessWidget {
             // CRITICAL: IgnorePointer prevents grain from eating touch events
             child: RepaintBoundary(
               // RepaintBoundary isolates grain repaints from parent
-              child: CustomPaint(painter: _NoisePainter(opacity: opacity)),
+              child: CustomPaint(
+                painter: _NoisePainter(opacity: opacity, isDark: isDark),
+              ),
             ),
           ),
         ),
@@ -53,8 +57,9 @@ class NoiseOverlay extends StatelessWidget {
 
 class _NoisePainter extends CustomPainter {
   final double opacity;
+  final bool isDark;
 
-  _NoisePainter({required this.opacity});
+  _NoisePainter({required this.opacity, required this.isDark});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -62,17 +67,23 @@ class _NoisePainter extends CustomPainter {
     final random = Random(42);
     final paint = Paint();
 
+    // White dots for Dark Mode, Black dots for Light Mode
+    final rgb = isDark ? 255 : 0;
+
     // 8000 dots covers a typical phone screen with good density
     for (int i = 0; i < 8000; i++) {
       final x = random.nextDouble() * size.width;
       final y = random.nextDouble() * size.height;
       // Each dot has its own random alpha within the opacity budget
       final alpha = (random.nextDouble() * opacity * 255).toInt();
-      paint.color = Color.fromARGB(alpha, 255, 255, 255);
+
+      // Apply the dynamic color
+      paint.color = Color.fromARGB(alpha, rgb, rgb, rgb);
       canvas.drawCircle(Offset(x, y), 0.5, paint);
     }
   }
 
   @override
-  bool shouldRepaint(_NoisePainter old) => old.opacity != opacity;
+  bool shouldRepaint(_NoisePainter old) =>
+      old.opacity != opacity || old.isDark != isDark; // Repaint if theme changes
 }

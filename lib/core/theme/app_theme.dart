@@ -176,13 +176,13 @@ class AppTheme {
     ),
     meshIndigo: const RadialGradient(
       center: Alignment(0.8, 1.0),
-      radius: 1.0,
-      colors: [Color(0x1E594FD4), Color(0x00594FD4)],
+      radius: 1.1,
+      colors: [Color.fromARGB(58, 90, 79, 212), Color(0x00594FD4)],
     ),
     meshViolet: const RadialGradient(
       center: Alignment(-0.1, 0.0),
-      radius: 0.9,
-      colors: [Color(0x0D7C3AED), Color(0x007C3AED)],
+      radius: 1,
+      colors: [Color.fromARGB(21, 124, 58, 237), Color.fromARGB(4, 124, 58, 237)],
     ),
     glassSurface: const LinearGradient(
       begin: Alignment.topLeft,
@@ -216,17 +216,17 @@ class AppTheme {
     meshAmber: const RadialGradient(
       center: Alignment(-0.7, -0.8),
       radius: 1.2,
-      colors: [Color(0x14E8A020), Color(0x00E8A020)],
+      colors: [Color.fromARGB(74, 232, 159, 32), Color(0x00E8A020)],
     ),
     meshIndigo: const RadialGradient(
       center: Alignment(0.8, 1.0),
       radius: 1.0,
-      colors: [Color(0x12594FD4), Color(0x00594FD4)],
+      colors: [Color.fromARGB(171, 90, 79, 212), Color(0x00594FD4)],
     ),
     meshViolet: const RadialGradient(
       center: Alignment(-0.1, 0.0),
-      radius: 0.9,
-      colors: [Color(0x0F7C3AED), Color(0x007C3AED)],
+      radius: 1.0,
+      colors: [Color.fromARGB(47, 124, 58, 237), Color(0x007C3AED)],
     ),
     glassSurface: const LinearGradient(
       begin: Alignment.topLeft,

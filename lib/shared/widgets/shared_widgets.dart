@@ -195,7 +195,7 @@ class PageBackground extends StatelessWidget {
 
     // Wrap the entire background stack with the film grain noise
     return NoiseOverlay(
-      opacity: Theme.of(context).brightness == Brightness.dark ? 0.04 : 0.015,
+      opacity: Theme.of(context).brightness == Brightness.dark ? 0.09 : 0.06,
       child: Stack(
         children: [
           Container(decoration: BoxDecoration(gradient: ext.bgGradient)),
