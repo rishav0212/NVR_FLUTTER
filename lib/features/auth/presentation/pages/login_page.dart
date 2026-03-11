@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -19,10 +20,10 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _formKey          = GlobalKey<FormState>();
-  final _emailController    = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isGoogleLoading   = false;
+  bool _isGoogleLoading = false;
 
   @override
   void dispose() {
@@ -34,17 +35,20 @@ class _LoginPageState extends State<LoginPage> {
   void _submit() {
     FocusScope.of(context).unfocus();
     if (_formKey.currentState?.validate() ?? false) {
-      context.read<AuthBloc>().add(LoginRequested(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          ));
+      context.read<AuthBloc>().add(
+        LoginRequested(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        ),
+      );
     }
   }
 
   Future<void> _signInWithGoogle() async {
     setState(() => _isGoogleLoading = true);
     final uri = Uri.parse(
-        '${AppConstants.baseUrl}${AppConstants.googleAuthEndpoint}');
+      '${AppConstants.baseUrl}${AppConstants.googleAuthEndpoint}',
+    );
     try {
       if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
         throw 'Could not launch';
@@ -63,14 +67,16 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.bgBase,
+      // We dynamically pull the scaffold background color from the active theme
+      // rather than hardcoding AppTheme.bgBase, ensuring seamless Light/Dark mode transitions.
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: PageBackground(
         child: GestureDetector(
           onTap: () => FocusScope.of(context).unfocus(),
           behavior: HitTestBehavior.opaque,
           child: BlocBuilder<AuthBloc, AuthState>(
             builder: (context, state) {
-              final isLoading    = state is AuthLoading;
+              final isLoading = state is AuthLoading;
               final errorMessage = state is AuthError ? state.message : null;
 
               return SafeArea(
@@ -80,7 +86,8 @@ class _LoginPageState extends State<LoginPage> {
                       hasScrollBody: false,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: AppTheme.s24),
+                          horizontal: AppTheme.s24,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -102,16 +109,16 @@ class _LoginPageState extends State<LoginPage> {
                                 children: [
                                   Text(
                                     'Welcome back',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .displaySmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.displaySmall,
                                   ),
                                   const SizedBox(height: AppTheme.s6),
                                   Text(
                                     'Sign in to monitor your cameras',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
                                   ),
                                 ],
                               ),
@@ -129,8 +136,7 @@ class _LoginPageState extends State<LoginPage> {
                                     AppTextField(
                                       label: 'Email',
                                       controller: _emailController,
-                                      keyboardType:
-                                          TextInputType.emailAddress,
+                                      keyboardType: TextInputType.emailAddress,
                                       prefixIcon: Icons.mail_outline_rounded,
                                       textInputAction: TextInputAction.next,
                                       validator: (v) {
@@ -146,8 +152,7 @@ class _LoginPageState extends State<LoginPage> {
                                       label: 'Password',
                                       controller: _passwordController,
                                       obscureText: true,
-                                      prefixIcon:
-                                          Icons.lock_outline_rounded,
+                                      prefixIcon: Icons.lock_outline_rounded,
                                       textInputAction: TextInputAction.done,
                                       onSubmitted: (_) => _submit(),
                                       validator: (v) {
@@ -157,6 +162,34 @@ class _LoginPageState extends State<LoginPage> {
                                       },
                                     ),
                                   ],
+                                ),
+                              ),
+                            ),
+
+                            // ── Forgot Password ───────────────────────────
+                            AnimatedEntrance(
+                              delay: const Duration(milliseconds: 200),
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: () {
+                                    FocusScope.of(context).unfocus();
+                                    context.push(
+                                      AppConstants.forgotPasswordRoute,
+                                    );
+                                  },
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: AppTheme.s12,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Forgot Password?',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelMedium
+                                        ?.copyWith(color: AppTheme.amber),
+                                  ),
                                 ),
                               ),
                             ),
@@ -212,14 +245,14 @@ class _LoginPageState extends State<LoginPage> {
                                   children: [
                                     Text(
                                       "Don't have an account?  ",
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodyMedium,
                                     ),
                                     TextButton(
-                                      onPressed: () => Navigator.pushNamed(
-                                          context,
-                                          AppConstants.registerRoute),
+                                      onPressed: () => context.push(
+                                        AppConstants.registerRoute,
+                                      ),
                                       child: const Text('Create account'),
                                     ),
                                   ],

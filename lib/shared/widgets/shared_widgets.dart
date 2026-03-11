@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
-// SENTINEL SHARED WIDGETS v3
+// SENTINEL SHARED WIDGETS v4
 // ═════════════════════════════════════════════════════════════════════════════
 //
 // Every reusable component lives here. No hardcoded values — all from AppTheme.
 //
 // Contents:
-//   • AnimatedEntrance     — fixed staggered entrance (was broken before)
-//   • PageBackground       — mesh gradient background wrapper
+//   • AnimatedEntrance     — staggered entrance animation
+//   • PageBackground       — dynamic mesh gradient background wrapper
 //   • AppWordmark          — brand logo mark
 //   • GlassCard            — frosted glass container
 //   • PrimaryButton        — amber gradient with press animation
@@ -91,10 +91,7 @@ class _AnimatedEntranceState extends State<AnimatedEntrance>
     _slide = Tween<Offset>(
       begin: Offset(0, widget.slideDistance / 200),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _ctrl,
-      curve: AppTheme.curveEntrance,
-    ));
+    ).animate(CurvedAnimation(parent: _ctrl, curve: AppTheme.curveEntrance));
 
     if (widget.delay == Duration.zero) {
       _ctrl.forward();
@@ -130,59 +127,56 @@ class _AnimatedEntranceState extends State<AnimatedEntrance>
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // Wraps page Scaffold body content with the layered mesh background:
-//   Layer 0: void-black base gradient
+//   Layer 0: base gradient (void-black for dark mode, pearl for light mode)
 //   Layer 1: amber radial bleed — top-left (warmth, security light)
 //   Layer 2: indigo radial bleed — bottom-right (depth, cool contrast)
 //   Layer 3: content
+//
+// Retrieves active background meshes dynamically via ThemeExtension for
+// seamless Light/Dark mode support.
 //
 // Usage: wrap your SafeArea (or child) with this, not the Scaffold.
 //
 class PageBackground extends StatelessWidget {
   final Widget child;
-
   const PageBackground({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
+    // Pulls the active background design securely based on light/dark mode
+    final ext = Theme.of(context).extension<AppColorsExtension>()!;
+
     return Stack(
       children: [
-        // Base gradient
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
-          ),
-        ),
-
-        // Amber mesh — top left bleed
+        // The core gradient background (Aurora for dark, Pearl for light)
+        Container(decoration: BoxDecoration(gradient: ext.bgGradient)),
+        // Top Amber Mesh Blob
         Positioned(
-          top: -120,
-          left: -120,
-          width: 450,
-          height: 450,
+          top: -150,
+          left: -150,
+          width: 500,
+          height: 500,
           child: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: AppTheme.meshAmber,
+            decoration: BoxDecoration(
+              gradient: ext.meshAmber,
               shape: BoxShape.circle,
             ),
           ),
         ),
-
-        // Indigo mesh — bottom right bleed
+        // Bottom Indigo Mesh Blob
         Positioned(
           bottom: -100,
           right: -100,
           width: 400,
           height: 400,
           child: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: AppTheme.meshIndigo,
+            decoration: BoxDecoration(
+              gradient: ext.meshIndigo,
               shape: BoxShape.circle,
             ),
           ),
         ),
-
-        // Content on top
-        child,
+        child, // Rest of the page content
       ],
     );
   }
@@ -202,11 +196,14 @@ class AppWordmark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Dynamically accesses the proper high-contrast icon color for the theme
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Icon container with amber gradient + glow
+        // Icon container with amber gradient + dynamic glow
         Container(
           width: size,
           height: size,
@@ -215,7 +212,7 @@ class AppWordmark extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppTheme.rMd),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.amberGlow20,
+                color: AppTheme.amber.withOpacity(0.20),
                 blurRadius: 20,
                 offset: const Offset(0, 4),
               ),
@@ -223,19 +220,19 @@ class AppWordmark extends StatelessWidget {
           ),
           child: Icon(
             Icons.videocam_rounded,
-            color: AppTheme.textOnAmber,
+            color: onPrimary,
             size: size * 0.5,
           ),
         ),
-        SizedBox(width: AppTheme.s12),
+        const SizedBox(width: AppTheme.s12),
         Text(
           'Sentinel',
           style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.5,
-              ),
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
+          ),
         ),
-        SizedBox(width: AppTheme.s4),
+        const SizedBox(width: AppTheme.s4),
         // Amber pulse dot — floated to top-right of wordmark
         Padding(
           padding: const EdgeInsets.only(bottom: 16),
@@ -247,7 +244,7 @@ class AppWordmark extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.amberGlow35,
+                  color: AppTheme.amber.withOpacity(0.35),
                   blurRadius: 6,
                   spreadRadius: 1,
                 ),
@@ -265,6 +262,7 @@ class AppWordmark extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // Frosted glass container for grouping related content.
+// Utilizes context to inject the theme-appropriate soft shadows and border opacities.
 //
 class GlassCard extends StatelessWidget {
   final Widget child;
@@ -285,6 +283,7 @@ class GlassCard extends StatelessWidget {
     return Container(
       padding: padding ?? const EdgeInsets.all(AppTheme.s20),
       decoration: AppTheme.glassCard(
+        context, // Injects active ThemeExtension for light/dark properties
         radius: borderRadius ?? AppTheme.rLg,
         borderColor: borderColor,
       ),
@@ -298,9 +297,9 @@ class GlassCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // Amber gradient button with:
-//   • Press scale (0.98) via AnimationController — feels physical
+//   • Press scale (0.97) via AnimationController — feels physical
 //   • Glow shadow that disappears when loading/disabled
-//   • Loading spinner in textOnAmber color
+//   • Loading spinner adapting to context onPrimary color
 //
 class PrimaryButton extends StatefulWidget {
   final String label;
@@ -335,9 +334,10 @@ class _PrimaryButtonState extends State<PrimaryButton>
       duration: const Duration(milliseconds: 90),
       reverseDuration: const Duration(milliseconds: 160),
     );
-    _scale = Tween<double>(begin: 1.0, end: 0.97).animate(
-      CurvedAnimation(parent: _press, curve: Curves.easeOut),
-    );
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: 0.97,
+    ).animate(CurvedAnimation(parent: _press, curve: Curves.easeOut));
   }
 
   @override
@@ -350,12 +350,17 @@ class _PrimaryButtonState extends State<PrimaryButton>
 
   @override
   Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<AppColorsExtension>()!;
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+
     return GestureDetector(
       onTapDown: _isActive ? (_) => _press.forward() : null,
-      onTapUp: _isActive ? (_) {
-        _press.reverse();
-        widget.onPressed?.call();
-      } : null,
+      onTapUp: _isActive
+          ? (_) {
+              _press.reverse();
+              widget.onPressed?.call();
+            }
+          : null,
       onTapCancel: _isActive ? () => _press.reverse() : null,
       child: AnimatedBuilder(
         animation: _scale,
@@ -374,12 +379,12 @@ class _PrimaryButtonState extends State<PrimaryButton>
               boxShadow: _isActive
                   ? [
                       BoxShadow(
-                        color: AppTheme.amberGlow20,
+                        color: AppTheme.amber.withOpacity(0.20),
                         blurRadius: 24,
                         offset: const Offset(0, 6),
                       ),
                       BoxShadow(
-                        color: AppTheme.amberGlow10,
+                        color: ext.amberGlow10,
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -388,32 +393,28 @@ class _PrimaryButtonState extends State<PrimaryButton>
             ),
             alignment: Alignment.center,
             child: widget.isLoading
-                ? const SizedBox(
+                ? SizedBox(
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.0,
-                      color: AppTheme.textOnAmber,
+                      color: onPrimary,
                     ),
                   )
                 : Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (widget.icon != null) ...[
-                        Icon(
-                          widget.icon,
-                          size: 18,
-                          color: AppTheme.textOnAmber,
-                        ),
+                        Icon(widget.icon, size: 18, color: onPrimary),
                         const SizedBox(width: AppTheme.s8),
                       ],
                       Text(
                         widget.label,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'DMSans',
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textOnAmber,
+                          color: onPrimary,
                           letterSpacing: 0.15,
                         ),
                       ),
@@ -448,15 +449,17 @@ class SecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return SizedBox(
       width: double.infinity,
       height: height,
       child: OutlinedButton(
         onPressed: isLoading ? null : onPressed,
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppTheme.textPrimary,
-          backgroundColor: AppTheme.glassWhite4,
-          side: const BorderSide(color: AppTheme.borderMid),
+          foregroundColor: colorScheme.onSurface,
+          backgroundColor: Colors.transparent,
+          side: BorderSide(color: colorScheme.outlineVariant),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.rMd),
           ),
@@ -467,12 +470,12 @@ class SecondaryButton extends StatelessWidget {
           ),
         ),
         child: isLoading
-            ? const SizedBox(
+            ? SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppTheme.textSecondary,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               )
             : Row(
@@ -498,23 +501,21 @@ class GoogleSignInButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool isLoading;
 
-  const GoogleSignInButton({
-    super.key,
-    this.onPressed,
-    this.isLoading = false,
-  });
+  const GoogleSignInButton({super.key, this.onPressed, this.isLoading = false});
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return SizedBox(
       width: double.infinity,
       height: 54,
       child: OutlinedButton(
         onPressed: isLoading ? null : onPressed,
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppTheme.textPrimary,
-          backgroundColor: AppTheme.glassWhite4,
-          side: const BorderSide(color: AppTheme.borderMid),
+          foregroundColor: colorScheme.onSurface,
+          backgroundColor: Colors.transparent,
+          side: BorderSide(color: colorScheme.outlineVariant),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.rMd),
           ),
@@ -569,7 +570,7 @@ class _GoogleGlyph extends StatelessWidget {
 //
 // Enhanced input field:
 //   • AnimatedSwitcher on the visibility toggle icon
-//   • Subtle amber glow container on focus (via FocusNode listener)
+//   • Subtle amber glow container on focus dynamically sourced from ThemeExtension
 //
 class AppTextField extends StatefulWidget {
   final String label;
@@ -631,6 +632,9 @@ class _AppTextFieldState extends State<AppTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<AppColorsExtension>()!;
+    final hintColor = Theme.of(context).colorScheme.onSurfaceVariant;
+
     return AnimatedContainer(
       duration: AppTheme.tMid,
       curve: AppTheme.curveSmooth,
@@ -639,10 +643,10 @@ class _AppTextFieldState extends State<AppTextField> {
         boxShadow: _hasFocus
             ? [
                 BoxShadow(
-                  color: AppTheme.amberGlow10,
+                  color: ext.amberGlow10,
                   blurRadius: 20,
                   spreadRadius: 1,
-                )
+                ),
               ]
             : null,
       ),
@@ -658,10 +662,7 @@ class _AppTextFieldState extends State<AppTextField> {
         enabled: widget.enabled,
         maxLines: _obscure ? 1 : widget.maxLines,
         autofocus: widget.autofocus,
-        style: Theme.of(context)
-            .textTheme
-            .bodyLarge
-            ?.copyWith(height: 1.2),
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.2),
         decoration: InputDecoration(
           labelText: widget.label,
           hintText: widget.hint,
@@ -673,8 +674,9 @@ class _AppTextFieldState extends State<AppTextField> {
                   behavior: HitTestBehavior.opaque,
                   onTap: () => setState(() => _obscure = !_obscure),
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: AppTheme.s12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.s12,
+                    ),
                     child: AnimatedSwitcher(
                       duration: AppTheme.tFast,
                       child: Icon(
@@ -683,7 +685,7 @@ class _AppTextFieldState extends State<AppTextField> {
                             : Icons.visibility_off_outlined,
                         key: ValueKey(_obscure),
                         size: 18,
-                        color: AppTheme.textHint,
+                        color: hintColor,
                       ),
                     ),
                   ),
@@ -710,13 +712,12 @@ class LabeledDivider extends StatelessWidget {
       children: [
         const Expanded(child: Divider()),
         Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: AppTheme.s16),
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.s16),
           child: Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.textHint,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
         const Expanded(child: Divider()),
@@ -749,9 +750,9 @@ class ErrorBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: AppTheme.s2),
-            child: const Icon(
+          const Padding(
+            padding: EdgeInsets.only(top: AppTheme.s2),
+            child: Icon(
               Icons.error_outline_rounded,
               color: AppTheme.error,
               size: 15,
@@ -762,9 +763,9 @@ class ErrorBanner extends StatelessWidget {
             child: Text(
               message,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.error,
-                    fontSize: 12.5,
-                  ),
+                color: AppTheme.error,
+                fontSize: 12.5,
+              ),
             ),
           ),
         ],
@@ -784,21 +785,23 @@ class SuccessBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<AppColorsExtension>()!;
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppTheme.s16,
         vertical: AppTheme.s12,
       ),
       decoration: BoxDecoration(
-        color: AppTheme.success.withOpacity(0.07),
+        color: ext.success.withOpacity(0.07),
         borderRadius: BorderRadius.circular(AppTheme.rSm),
-        border: Border.all(color: AppTheme.success.withOpacity(0.22)),
+        border: Border.all(color: ext.success.withOpacity(0.22)),
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.check_circle_outline_rounded,
-            color: AppTheme.success,
+            color: ext.success,
             size: 15,
           ),
           const SizedBox(width: AppTheme.s8),
@@ -806,9 +809,9 @@ class SuccessBanner extends StatelessWidget {
             child: Text(
               message,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.success,
-                    fontSize: 12.5,
-                  ),
+                color: ext.success,
+                fontSize: 12.5,
+              ),
             ),
           ),
         ],
@@ -820,16 +823,15 @@ class SuccessBanner extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // PULSING DOT — animated status indicator
 // ─────────────────────────────────────────────────────────────────────────────
-
+//
+// Defaults dynamically to the active theme's success status color unless
+// explicitly provided.
+//
 class PulsingDot extends StatefulWidget {
-  final Color color;
+  final Color? color;
   final double size;
 
-  const PulsingDot({
-    super.key,
-    this.color = AppTheme.success,
-    this.size = 8,
-  });
+  const PulsingDot({super.key, this.color, this.size = 8});
 
   @override
   State<PulsingDot> createState() => _PulsingDotState();
@@ -849,12 +851,14 @@ class _PulsingDotState extends State<PulsingDot>
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
 
-    _scale = Tween<double>(begin: 0.85, end: 1.15).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
-    _opacity = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
+    _scale = Tween<double>(
+      begin: 0.85,
+      end: 1.15,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _opacity = Tween<double>(
+      begin: 0.6,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
@@ -865,6 +869,11 @@ class _PulsingDotState extends State<PulsingDot>
 
   @override
   Widget build(BuildContext context) {
+    // Dynamically fallback to the ThemeExtension success color if none is passed
+    final activeColor =
+        widget.color ??
+        Theme.of(context).extension<AppColorsExtension>()!.success;
+
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (_, __) => Transform.scale(
@@ -875,11 +884,11 @@ class _PulsingDotState extends State<PulsingDot>
             width: widget.size,
             height: widget.size,
             decoration: BoxDecoration(
-              color: widget.color,
+              color: activeColor,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: widget.color.withOpacity(0.4),
+                  color: activeColor.withOpacity(0.4),
                   blurRadius: 6,
                   spreadRadius: 1,
                 ),

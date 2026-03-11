@@ -3,15 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../bloc/auth_bloc.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // COMPLETE PROFILE PAGE
 // ═════════════════════════════════════════════════════════════════════════════
-//
-// Shown after first login when profile_complete == false.
-// Collects the phone number (required before full app access).
-// Pre-fills name from existing auth state.
-//
+
 class CompleteProfilePage extends StatefulWidget {
   const CompleteProfilePage({super.key});
 
@@ -57,7 +54,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.bgBase,
+      backgroundColor: Theme.of(
+        context,
+      ).scaffoldBackgroundColor, // <--- DYNAMIC BACKGROUND
       body: PageBackground(
         child: BlocBuilder<AuthBloc, AuthState>(
           builder: (context, state) {
@@ -78,7 +77,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                       child: Container(
                         width: 52,
                         height: 52,
-                        decoration: AppTheme.amberIconBox(),
+                        decoration: AppTheme.amberIconBox(
+                          context,
+                        ), // <--- DYNAMIC BADGE
                         child: const Icon(
                           Icons.person_outline_rounded,
                           color: AppTheme.amber,
@@ -178,28 +179,24 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
 // ═════════════════════════════════════════════════════════════════════════════
 // HOME PAGE
 // ═════════════════════════════════════════════════════════════════════════════
-//
-// Phase 1 placeholder — camera grid arrives in Phase 2.
-// Designed to not look like a placeholder — it looks intentional.
-//
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    WakelockPlus.enable();
     final state = context.watch<AuthBloc>().state;
     final user = state is AuthAuthenticated ? state.user : null;
 
     return Scaffold(
-      backgroundColor: AppTheme.bgBase,
+      backgroundColor: Theme.of(
+        context,
+      ).scaffoldBackgroundColor, // <--- DYNAMIC BACKGROUND
       body: PageBackground(
         child: SafeArea(
           child: Column(
             children: [
-              // ── Top bar ──────────────────────────────────────────────────
               _HomeTopBar(userName: user?.name),
-
-              // ── Body ─────────────────────────────────────────────────────
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
@@ -209,15 +206,11 @@ class HomePage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Status bar
                       AnimatedEntrance(
                         delay: const Duration(milliseconds: 80),
                         child: const _StatusRow(),
                       ),
-
                       const SizedBox(height: AppTheme.s32),
-
-                      // Section header
                       AnimatedEntrance(
                         delay: const Duration(milliseconds: 160),
                         child: Row(
@@ -235,10 +228,7 @@ class HomePage extends StatelessWidget {
                           ],
                         ),
                       ),
-
                       const SizedBox(height: AppTheme.s16),
-
-                      // Empty state card
                       AnimatedEntrance(
                         delay: const Duration(milliseconds: 240),
                         child: const _EmptyStateCard(),
@@ -254,8 +244,6 @@ class HomePage extends StatelessWidget {
     );
   }
 }
-
-// ── Home sub-widgets ──────────────────────────────────────────────────────────
 
 class _HomeTopBar extends StatelessWidget {
   final String? userName;
@@ -273,7 +261,6 @@ class _HomeTopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Wordmark compact
           AnimatedEntrance(
             delay: Duration.zero,
             child: Row(
@@ -286,9 +273,11 @@ class _HomeTopBar extends StatelessWidget {
                     gradient: AppTheme.amberBtn,
                     borderRadius: BorderRadius.circular(AppTheme.rSm),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.videocam_rounded,
-                    color: AppTheme.textOnAmber,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onPrimary, // DYNAMIC ICON COLOR
                     size: 16,
                   ),
                 ),
@@ -302,10 +291,7 @@ class _HomeTopBar extends StatelessWidget {
               ],
             ),
           ),
-
           const Spacer(),
-
-          // Profile avatar / logout
           AnimatedEntrance(
             delay: const Duration(milliseconds: 80),
             child: Row(
@@ -313,10 +299,12 @@ class _HomeTopBar extends StatelessWidget {
                 _AvatarButton(initials: _initials(userName)),
                 const SizedBox(width: AppTheme.s4),
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.logout_outlined,
                     size: 18,
-                    color: AppTheme.textSecondary,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant, // DYNAMIC ICON COLOR
                   ),
                   onPressed: () =>
                       context.read<AuthBloc>().add(LogoutRequested()),
@@ -347,21 +335,23 @@ class _AvatarButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<AppColorsExtension>()!;
+
     return Container(
       width: 34,
       height: 34,
       decoration: BoxDecoration(
-        gradient: AppTheme.amberTint,
+        gradient: ext.amberTint, // DYNAMIC TINT
         shape: BoxShape.circle,
-        border: Border.all(color: AppTheme.borderAmber),
+        border: Border.all(color: AppTheme.amber.withOpacity(0.2)),
       ),
       alignment: Alignment.center,
       child: Text(
         initials,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: AppTheme.amber,
+          color: Theme.of(context).colorScheme.primary, // DYNAMIC PRIMARY
         ),
       ),
     );
@@ -373,21 +363,26 @@ class _StatusRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<AppColorsExtension>()!;
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppTheme.s16,
         vertical: AppTheme.s12,
       ),
-      decoration: AppTheme.glassCard(radius: AppTheme.rMd),
+      decoration: AppTheme.glassCard(
+        context,
+        radius: AppTheme.rMd,
+      ), // DYNAMIC GLASS
       child: Row(
         children: [
-          const PulsingDot(color: AppTheme.success),
+          PulsingDot(color: ext.success), // DYNAMIC SUCCESS
           const SizedBox(width: AppTheme.s10),
           Text(
             'System online',
             style: Theme.of(
               context,
-            ).textTheme.labelMedium?.copyWith(color: AppTheme.success),
+            ).textTheme.labelMedium?.copyWith(color: ext.success),
           ),
           const Spacer(),
           Text(
@@ -407,13 +402,16 @@ class _EmptyStateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(AppTheme.s40),
-      decoration: AppTheme.glassCard(),
+      decoration: AppTheme.glassCard(context), // DYNAMIC GLASS
       child: Column(
         children: [
           Container(
             width: 64,
             height: 64,
-            decoration: AppTheme.amberIconBox(radius: AppTheme.rLg),
+            decoration: AppTheme.amberIconBox(
+              context,
+              radius: AppTheme.rLg,
+            ), // DYNAMIC BADGE
             child: const Icon(
               Icons.videocam_off_outlined,
               color: AppTheme.amber,
@@ -432,16 +430,17 @@ class _EmptyStateCard extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: AppTheme.s28),
-          // Teaser badge
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: AppTheme.s16,
               vertical: AppTheme.s8,
             ),
             decoration: BoxDecoration(
-              gradient: AppTheme.amberTint,
+              gradient: Theme.of(
+                context,
+              ).extension<AppColorsExtension>()!.amberTint, // DYNAMIC TINT
               borderRadius: BorderRadius.circular(AppTheme.rFull),
-              border: Border.all(color: AppTheme.borderAmber),
+              border: Border.all(color: AppTheme.amber.withOpacity(0.2)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,

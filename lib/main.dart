@@ -1,6 +1,10 @@
+import 'dart:async'; // <-- ADDED for StreamSubscription
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:app_links/app_links.dart'; // <-- ADDED for Google Deep Linking
+
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
@@ -9,6 +13,11 @@ import 'injection_container.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 1. MUST BE FIRST: Load .env so ApiClient can successfully read the baseUrl
+  await dotenv.load(fileName: ".env");
+
+  // 2. THEN initialize Dependency Injection
   await initDi();
 
   SystemChrome.setPreferredOrientations([
@@ -16,14 +25,14 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  // Make system bars transparent so the theme handles the background dynamically
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: AppTheme.bgBase,
-      systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
     ),
   );
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   runApp(const NvrApp());
 }
@@ -41,15 +50,40 @@ class _NvrAppState extends State<NvrApp> {
   late final AuthBloc _authBloc;
   late final AppRouter _appRouter;
 
+  // Deep Link variables for Google OAuth
+  late final AppLinks _appLinks;
+  StreamSubscription<Uri>? _linkSubscription;
+
   @override
   void initState() {
     super.initState();
     _authBloc = getIt<AuthBloc>()..add(AppStarted());
     _appRouter = AppRouter(_authBloc);
+
+    // Initialize Google Deep Link listener
+    _initDeepLinks();
+  }
+
+  // Restored native deep linking.
+  // Intercepts nvr://auth/callback?token=... and logs the user in!
+  void _initDeepLinks() {
+    _appLinks = AppLinks();
+    _linkSubscription = _appLinks.uriLinkStream.listen((uri) {
+      if (uri.scheme == AppConstants.deepLinkScheme &&
+          uri.path == AppConstants.oauthCallbackPath) {
+        final token =
+            uri.queryParameters['token'] ?? uri.queryParameters['accessToken'];
+
+        if (token != null && token.isNotEmpty) {
+          _authBloc.add(GoogleAuthTokenReceived(token));
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
+    _linkSubscription?.cancel(); // Clean up deep link listener
     _authBloc.close();
     super.dispose();
   }
@@ -61,7 +95,12 @@ class _NvrAppState extends State<NvrApp> {
       child: MaterialApp.router(
         title: AppConstants.appName,
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.darkTheme,
+
+        // Restored dynamic System Light/Dark Mode switching
+        themeMode: ThemeMode.system,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+
         routerConfig: _appRouter.router,
       ),
     );
@@ -111,19 +150,26 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Pulls the active background design securely based on light/dark mode
+    final ext = Theme.of(context).extension<AppColorsExtension>()!;
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppTheme.bgBase,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
-          // Mesh background blobs
+          // 1. Core gradient background (Aurora for dark, Pearl for light)
+          Container(decoration: BoxDecoration(gradient: ext.bgGradient)),
+
+          // 2. Mesh background blobs (Dynamically adapts to theme)
           Positioned(
             top: -150,
             left: -150,
             width: 500,
             height: 500,
-            child: const DecoratedBox(
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                gradient: AppTheme.meshAmber,
+                gradient: ext.meshAmber,
                 shape: BoxShape.circle,
               ),
             ),
@@ -133,14 +179,15 @@ class _SplashScreenState extends State<SplashScreen>
             right: -100,
             width: 400,
             height: 400,
-            child: const DecoratedBox(
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                gradient: AppTheme.meshIndigo,
+                gradient: ext.meshIndigo,
                 shape: BoxShape.circle,
               ),
             ),
           ),
 
+          // 3. Splash Content
           Center(
             child: AnimatedBuilder(
               animation: _ctrl,
@@ -159,15 +206,15 @@ class _SplashScreenState extends State<SplashScreen>
                       borderRadius: BorderRadius.circular(AppTheme.rXl),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.amberGlow20,
+                          color: AppTheme.amber.withOpacity(0.20),
                           blurRadius: 40,
                           spreadRadius: 4,
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.videocam_rounded,
-                      color: AppTheme.textOnAmber,
+                      color: colorScheme.onPrimary,
                       size: 32,
                     ),
                   ),
@@ -184,7 +231,7 @@ class _SplashScreenState extends State<SplashScreen>
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 1.5,
-                      color: AppTheme.amber.withOpacity(0.6),
+                      color: colorScheme.primary.withOpacity(0.6),
                     ),
                   ),
                 ],

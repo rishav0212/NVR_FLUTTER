@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../bloc/auth_bloc.dart';
 
-/// Registration page.
-///
-/// Uses BlocBuilder (NOT BlocConsumer) — GoRouter's redirect in app_router.dart
-/// watches AuthBloc state and handles all navigation automatically.
-/// Manual Navigator calls conflict with GoRouter and cause crashes.
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -19,12 +15,12 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  final _formKey           = GlobalKey<FormState>();
-  final _nameController      = TextEditingController();
-  final _emailController     = TextEditingController();
-  final _passwordController  = TextEditingController();
-  final _phoneController     = TextEditingController();
-  bool _isGoogleLoading    = false;
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _phoneController = TextEditingController();
+  bool _isGoogleLoading = false;
 
   @override
   void dispose() {
@@ -38,21 +34,24 @@ class _RegisterPageState extends State<RegisterPage> {
   void _submit() {
     FocusScope.of(context).unfocus();
     if (_formKey.currentState?.validate() ?? false) {
-      context.read<AuthBloc>().add(RegisterRequested(
-            name: _nameController.text.trim(),
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-            phoneNumber: _phoneController.text.trim().isEmpty
-                ? null
-                : _phoneController.text.trim(),
-          ));
+      context.read<AuthBloc>().add(
+        RegisterRequested(
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          phoneNumber: _phoneController.text.trim().isEmpty
+              ? null
+              : _phoneController.text.trim(),
+        ),
+      );
     }
   }
 
   Future<void> _signInWithGoogle() async {
     setState(() => _isGoogleLoading = true);
     final uri = Uri.parse(
-        '${AppConstants.baseUrl}${AppConstants.googleAuthEndpoint}');
+      '${AppConstants.baseUrl}${AppConstants.googleAuthEndpoint}',
+    );
     try {
       if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
         throw 'Could not launch';
@@ -71,12 +70,13 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.bgBase,
-      // Custom back button on AppBar — clean with background transparency
+      backgroundColor: Theme.of(
+        context,
+      ).scaffoldBackgroundColor, // <--- DYNAMIC BACKGROUND
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.pop(),
         ),
       ),
       body: PageBackground(
@@ -85,7 +85,7 @@ class _RegisterPageState extends State<RegisterPage> {
           behavior: HitTestBehavior.opaque,
           child: BlocBuilder<AuthBloc, AuthState>(
             builder: (context, state) {
-              final isLoading    = state is AuthLoading;
+              final isLoading = state is AuthLoading;
               final errorMessage = state is AuthError ? state.message : null;
 
               return SafeArea(
@@ -95,21 +95,17 @@ class _RegisterPageState extends State<RegisterPage> {
                       hasScrollBody: false,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: AppTheme.s24),
+                          horizontal: AppTheme.s24,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: AppTheme.s16),
-
-                            // ── Wordmark ──────────────────────────────────
                             AnimatedEntrance(
                               delay: Duration.zero,
                               child: const AppWordmark(),
                             ),
-
                             const SizedBox(height: AppTheme.s32),
-
-                            // ── Headline ──────────────────────────────────
                             AnimatedEntrance(
                               delay: const Duration(milliseconds: 80),
                               child: Column(
@@ -117,24 +113,21 @@ class _RegisterPageState extends State<RegisterPage> {
                                 children: [
                                   Text(
                                     'Create account',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .displaySmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.displaySmall,
                                   ),
                                   const SizedBox(height: AppTheme.s6),
                                   Text(
                                     'Set up your Sentinel account',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
                                   ),
                                 ],
                               ),
                             ),
-
                             const SizedBox(height: AppTheme.s28),
-
-                            // ── Form ──────────────────────────────────────
                             AnimatedEntrance(
                               delay: const Duration(milliseconds: 160),
                               child: Form(
@@ -144,8 +137,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                     AppTextField(
                                       label: 'Full Name',
                                       controller: _nameController,
-                                      prefixIcon:
-                                          Icons.person_outline_rounded,
+                                      prefixIcon: Icons.person_outline_rounded,
                                       textInputAction: TextInputAction.next,
                                       validator: (v) {
                                         if (v == null || v.isEmpty)
@@ -159,10 +151,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                     AppTextField(
                                       label: 'Email',
                                       controller: _emailController,
-                                      keyboardType:
-                                          TextInputType.emailAddress,
-                                      prefixIcon:
-                                          Icons.mail_outline_rounded,
+                                      keyboardType: TextInputType.emailAddress,
+                                      prefixIcon: Icons.mail_outline_rounded,
                                       textInputAction: TextInputAction.next,
                                       validator: (v) {
                                         if (v == null || v.isEmpty)
@@ -177,8 +167,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                       label: 'Password',
                                       controller: _passwordController,
                                       obscureText: true,
-                                      prefixIcon:
-                                          Icons.lock_outline_rounded,
+                                      prefixIcon: Icons.lock_outline_rounded,
                                       textInputAction: TextInputAction.next,
                                       validator: (v) {
                                         if (v == null || v.isEmpty)
@@ -194,8 +183,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                       hint: 'Optional — add later',
                                       controller: _phoneController,
                                       keyboardType: TextInputType.phone,
-                                      prefixIcon:
-                                          Icons.phone_outlined,
+                                      prefixIcon: Icons.phone_outlined,
                                       textInputAction: TextInputAction.done,
                                       onSubmitted: (_) => _submit(),
                                     ),
@@ -203,8 +191,6 @@ class _RegisterPageState extends State<RegisterPage> {
                                 ),
                               ),
                             ),
-
-                            // ── Error ─────────────────────────────────────
                             if (errorMessage != null) ...[
                               const SizedBox(height: AppTheme.s16),
                               AnimatedEntrance(
@@ -212,10 +198,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                 child: ErrorBanner(message: errorMessage),
                               ),
                             ],
-
                             const SizedBox(height: AppTheme.s28),
-
-                            // ── CTA ───────────────────────────────────────
                             AnimatedEntrance(
                               delay: const Duration(milliseconds: 240),
                               child: PrimaryButton(
@@ -225,17 +208,12 @@ class _RegisterPageState extends State<RegisterPage> {
                                 icon: Icons.arrow_forward_rounded,
                               ),
                             ),
-
                             const SizedBox(height: AppTheme.s24),
-
                             AnimatedEntrance(
                               delay: const Duration(milliseconds: 300),
                               child: const LabeledDivider(label: 'or'),
                             ),
-
                             const SizedBox(height: AppTheme.s24),
-
-                            // ── Google ────────────────────────────────────
                             AnimatedEntrance(
                               delay: const Duration(milliseconds: 360),
                               child: GoogleSignInButton(
@@ -243,11 +221,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                 isLoading: _isGoogleLoading,
                               ),
                             ),
-
                             const Spacer(),
                             const SizedBox(height: AppTheme.s24),
-
-                            // ── Sign in link ──────────────────────────────
                             AnimatedEntrance(
                               delay: const Duration(milliseconds: 420),
                               child: Center(
@@ -256,13 +231,12 @@ class _RegisterPageState extends State<RegisterPage> {
                                   children: [
                                     Text(
                                       'Already have an account?  ',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodyMedium,
                                     ),
                                     TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context),
+                                      onPressed: () => context.pop(),
                                       child: const Text('Sign in'),
                                     ),
                                   ],

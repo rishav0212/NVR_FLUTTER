@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../bloc/auth_bloc.dart';
@@ -35,7 +34,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.bgBase,
+      // Dynamic background color from Theme
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
@@ -45,14 +45,16 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       body: PageBackground(
         child: GestureDetector(
           onTap: () => FocusScope.of(context).unfocus(),
-          behavior: HitTestBehavior.opaque,
           child: BlocConsumer<AuthBloc, AuthState>(
             listener: (context, state) {
               if (state is AuthActionSuccess) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(state.message),
-                    backgroundColor: AppTheme.success,
+                    // Pull success color dynamically
+                    backgroundColor: Theme.of(
+                      context,
+                    ).extension<AppColorsExtension>()!.success,
                   ),
                 );
                 context.pop();
@@ -76,38 +78,39 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           children: [
                             const SizedBox(height: AppTheme.s48),
 
-                            // ── Icon ────────────────────────────────────
                             AnimatedEntrance(
-                              delay: Duration.zero,
+                              delay: const Duration(milliseconds: 100),
                               child: Container(
-                                width: 52,
-                                height: 52,
-                                decoration: AppTheme.amberIconBox(),
+                                width: 48,
+                                height: 48,
+                                // Pass context so the icon box perfectly matches light/dark theme
+                                decoration: AppTheme.amberIconBox(
+                                  context,
+                                  radius: AppTheme.rMd,
+                                ),
                                 child: const Icon(
-                                  Icons.lock_reset_rounded,
+                                  Icons.lock_reset_outlined,
                                   color: AppTheme.amber,
                                   size: 24,
                                 ),
                               ),
                             ),
-
                             const SizedBox(height: AppTheme.s24),
 
-                            // ── Headline ─────────────────────────────────
                             AnimatedEntrance(
-                              delay: const Duration(milliseconds: 80),
+                              delay: const Duration(milliseconds: 200),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Reset password',
+                                    'Reset Password',
                                     style: Theme.of(
                                       context,
                                     ).textTheme.displaySmall,
                                   ),
                                   const SizedBox(height: AppTheme.s6),
                                   Text(
-                                    "Enter your email and we'll send you\ninstructions to reset your password.",
+                                    "Enter your email and we'll send you instructions to reset your password.",
                                     style: Theme.of(
                                       context,
                                     ).textTheme.bodyMedium,
@@ -115,12 +118,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                 ],
                               ),
                             ),
-
                             const SizedBox(height: AppTheme.s32),
 
-                            // ── Form ─────────────────────────────────────
                             AnimatedEntrance(
-                              delay: const Duration(milliseconds: 160),
+                              delay: const Duration(milliseconds: 300),
                               child: Form(
                                 key: _formKey,
                                 child: AppTextField(
@@ -141,7 +142,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                               ),
                             ),
 
-                            // ── Error ────────────────────────────────────
                             if (errorMessage != null) ...[
                               const SizedBox(height: AppTheme.s16),
                               AnimatedEntrance(
@@ -151,17 +151,17 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                             ],
 
                             const Spacer(),
+                            const SizedBox(height: AppTheme.s28),
 
-                            // ── CTA ──────────────────────────────────────
                             AnimatedEntrance(
-                              delay: const Duration(milliseconds: 240),
+                              delay: const Duration(milliseconds: 400),
                               child: PrimaryButton(
                                 label: 'Send Reset Link',
                                 onPressed: _submit,
                                 isLoading: isLoading,
                               ),
                             ),
-                            const SizedBox(height: AppTheme.s24),
+                            const SizedBox(height: AppTheme.s32),
                           ],
                         ),
                       ),
