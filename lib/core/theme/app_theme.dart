@@ -1,349 +1,399 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// NVR Platform Design System
-///
-/// Design direction: "Dark Precision" — inspired by high-end security
-/// dashboards and professional monitoring tools. Think Bloomberg Terminal
-/// meets modern fintech. Deep dark backgrounds with sharp amber/gold accents.
-///
-/// The palette avoids the typical "blue gradient on white" CCTV app look.
-/// Instead: near-black surfaces, warm amber as the primary accent (evokes
-/// security lighting, warmth, visibility), and cool slate for neutrals.
-///
-/// Now fully supports both Light and Dark modes with smooth page transitions,
-/// automatically adapting to the user's system preferences.
-///
-/// Typography: Syne for display (geometric, authoritative) paired with
-/// DM Sans for body (clean, legible at small sizes on camera labels).
-///
-/// All colors, spacings, and text styles are defined here.
-/// Never hardcode colors or text styles in widget files.
+// ═════════════════════════════════════════════════════════════════════════════
+// SENTINEL DESIGN SYSTEM v3 — "Obsidian Glass"
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// Aesthetic direction: Premium B2B security — deep void blacks, warm amber
+// security-light accents, and glass-morphic surfaces that suggest layered
+// depth. Inspired by high-end fintech dashboards and aerospace HUDs.
+//
+// Visual language:
+//   • Obsidian void base — deeper than standard dark mode
+//   • Mesh gradient bleeds — ambient amber/indigo light on background
+//   • Frosted glass cards — translucent surfaces with inner light rim
+//   • Amber as the ONLY accent — used with extreme discipline
+//   • Cinematic entrance animations — staggered, physics-based, never jarring
+//
+// RULES:
+//   ✓ ALL values live here — zero hardcoding in page/widget files
+//   ✓ Named semantically — use surfaceCard, not Color(0xFF...)
+//   ✓ Gradients are const — no per-build allocations
+// ═════════════════════════════════════════════════════════════════════════════
+
 class AppTheme {
-  // ─── Color Palette ──────────────────────────────────────────────────────────
+  AppTheme._();
 
-  /// Deep background — darker than typical "dark mode" for high contrast
-  static const Color backgroundDark = Color(0xFF0A0A0F);
-  static const Color surfaceDark = Color(0xFF12121A);
-  static const Color surfaceElevated = Color(0xFF1A1A26);
-  static const Color surfaceBorder = Color(0xFF252535);
+  // ── Backgrounds ────────────────────────────────────────────────────────────
 
-  /// Amber — primary accent. Security/warmth. Unique in the CCTV space.
-  static const Color amber = Color(0xFFE8A020);
-  static const Color amberLight = Color(0xFFF5B940);
-  static const Color amberDim = Color(0xFF8A5F12);
-  static const Color amberGlow = Color(0x26E8A020); // 15% opacity
+  /// Deepest possible background — near void
+  static const Color bgBase      = Color(0xFF060610);
+  /// Slightly lifted surface — content area base
+  static const Color bgSurface   = Color(0xFF0C0C1C);
+  /// Card / input fill
+  static const Color bgCard      = Color(0xFF111124);
+  /// Top-most surface — modals, dropdowns
+  static const Color bgElevated  = Color(0xFF181830);
 
-  /// Status colors
-  static const Color onlineGreen = Color(0xFF22C55E);
-  static const Color offlineRed = Color(0xFFEF4444);
-  static const Color warningOrange = Color(0xFFF97316);
+  // ── Borders ────────────────────────────────────────────────────────────────
 
-  /// Text hierarchy
-  static const Color textPrimary = Color(0xFFF0F0F8);
-  static const Color textSecondary = Color(0xFF8888A8);
-  static const Color textMuted = Color(0xFF44445A);
-  static const Color textOnAmber = Color(0xFF0A0A0F);
+  static const Color borderSubtle = Color(0x14FFFFFF); // 8%
+  static const Color borderMid    = Color(0x1FFFFFFF); // 12%
+  static const Color borderAmber  = Color(0x33E8A020); // amber 20%
 
-  // ─── Spacing ─────────────────────────────────────────────────────────────────
+  // ── Glass overlays (use with Container decoration) ─────────────────────────
 
-  static const double xs = 4.0;
-  static const double sm = 8.0;
-  static const double md = 16.0;
-  static const double lg = 24.0;
-  static const double xl = 32.0;
-  static const double xxl = 48.0;
+  static const Color glassWhite4  = Color(0x0AFFFFFF);
+  static const Color glassWhite8  = Color(0x14FFFFFF);
+  static const Color glassWhite12 = Color(0x1FFFFFFF);
 
-  // ─── Border Radius ───────────────────────────────────────────────────────────
+  // ── Amber family — the ONLY accent ────────────────────────────────────────
 
-  static const double radiusSm = 6.0;
-  static const double radiusMd = 12.0;
-  static const double radiusLg = 20.0;
-  static const double radiusXl = 28.0;
+  static const Color amber         = Color(0xFFE8A020);
+  static const Color amberLight    = Color(0xFFF5C050);
+  static const Color amberDim      = Color(0xFFB07818);
+  static const Color amberMuted    = Color(0xFF7A5210);
 
-  // ─── Typography Generator ────────────────────────────────────────────────────
+  // Glow / tint variants
+  static const Color amberGlow5    = Color(0x0DE8A020);
+  static const Color amberGlow10   = Color(0x1AE8A020);
+  static const Color amberGlow20   = Color(0x33E8A020);
+  static const Color amberGlow35   = Color(0x59E8A020);
 
-  /// Generates the text theme dynamically based on mode (Light/Dark) colors
-  static TextTheme _buildTextTheme(
-    Color primary,
-    Color secondary,
-    Color muted,
-  ) => TextTheme(
-    // Display — app name, large headings
-    displayLarge: GoogleFonts.syne(
-      fontSize: 32,
-      fontWeight: FontWeight.w700,
-      color: primary,
-      letterSpacing: -0.5,
+  // ── Text ──────────────────────────────────────────────────────────────────
+
+  static const Color textPrimary   = Color(0xFFF0F0FA); // warm white
+  static const Color textSecondary = Color(0xFF8080A0); // muted slate
+  static const Color textHint      = Color(0xFF3A3A58); // very muted
+  static const Color textOnAmber   = Color(0xFF060610); // on filled amber
+
+  // ── Semantic ──────────────────────────────────────────────────────────────
+
+  static const Color success = Color(0xFF34D399);
+  static const Color error   = Color(0xFFFF5560);
+  static const Color warning = Color(0xFFF97316);
+  static const Color info    = Color(0xFF60A5FA);
+
+  // ── Gradients ─────────────────────────────────────────────────────────────
+
+  /// Page base — subtle diagonal darkening
+  static const LinearGradient bgGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF0A0A1E), Color(0xFF060610), Color(0xFF0E0A16)],
+    stops: [0.0, 0.55, 1.0],
+  );
+
+  /// Ambient amber mesh — upper portion bleed (use in Stack)
+  static const RadialGradient meshAmber = RadialGradient(
+    center: Alignment(-0.7, -0.8),
+    radius: 1.1,
+    colors: [Color(0x16E8A020), Color(0x00E8A020)],
+  );
+
+  /// Ambient indigo mesh — lower bleed (use in Stack)
+  static const RadialGradient meshIndigo = RadialGradient(
+    center: Alignment(0.8, 1.0),
+    radius: 0.9,
+    colors: [Color(0x10594FD4), Color(0x00594FD4)],
+  );
+
+  /// Button fill — warm directional amber
+  static const LinearGradient amberBtn = LinearGradient(
+    begin: Alignment(-1, -1),
+    end: Alignment(1, 1),
+    colors: [Color(0xFFF5C050), Color(0xFFE8A020), Color(0xFFCC8C18)],
+    stops: [0.0, 0.55, 1.0],
+  );
+
+  /// Button fill — pressed state
+  static const LinearGradient amberBtnPressed = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFE8A020), Color(0xFFAA7010)],
+  );
+
+  /// Frosted glass card surface
+  static const LinearGradient glassSurface = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0x18FFFFFF), Color(0x06FFFFFF)],
+  );
+
+  /// Subtle amber tint — used on feature badges/chips
+  static const LinearGradient amberTint = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0x22E8A020), Color(0x0AE8A020)],
+  );
+
+  // ── Spacing ────────────────────────────────────────────────────────────────
+
+  static const double s2  = 2.0;
+  static const double s4  = 4.0;
+  static const double s6  = 6.0;
+  static const double s8  = 8.0;
+  static const double s10 = 10.0;
+  static const double s12 = 12.0;
+  static const double s16 = 16.0;
+  static const double s20 = 20.0;
+  static const double s24 = 24.0;
+  static const double s28 = 28.0;
+  static const double s32 = 32.0;
+  static const double s40 = 40.0;
+  static const double s48 = 48.0;
+  static const double s56 = 56.0;
+  static const double s64 = 64.0;
+
+  // Legacy aliases — existing code continues to compile
+  static const double xs  = s4;
+  static const double sm  = s8;
+  static const double md  = s16;
+  static const double lg  = s24;
+  static const double xl  = s32;
+  static const double xxl = s48;
+
+  // ── Radii ─────────────────────────────────────────────────────────────────
+
+  static const double rXs   = 4.0;
+  static const double rSm   = 8.0;
+  static const double rMd   = 12.0;
+  static const double rLg   = 18.0;
+  static const double rXl   = 24.0;
+  static const double rFull = 999.0;
+
+  // Legacy aliases
+  static const double radiusSm = rSm;
+  static const double radiusMd = rMd;
+  static const double radiusLg = rLg;
+  static const double radiusXl = rXl;
+
+  // ── Animation Timings ──────────────────────────────────────────────────────
+
+  static const Duration tFast   = Duration(milliseconds: 160);
+  static const Duration tMid    = Duration(milliseconds: 320);
+  static const Duration tSlow   = Duration(milliseconds: 540);
+  static const Duration tXSlow  = Duration(milliseconds: 800);
+
+  // ── Animation Curves ──────────────────────────────────────────────────────
+
+  /// Entrance: starts fast, decelerates smoothly to rest
+  static const Curve curveEntrance = Curves.easeOutExpo;
+  /// Exit: starts slow, accelerates away
+  static const Curve curveExit     = Curves.easeInCubic;
+  /// Generic smooth — in-out for state changes
+  static const Curve curveSmooth   = Curves.easeInOutCubic;
+  /// Spring — use for scale/bounce effects
+  static const Curve curveSpring   = Curves.elasticOut;
+
+  // ── Typography ─────────────────────────────────────────────────────────────
+  //
+  // Pairing: Outfit (display) + DM Sans (body)
+  // Outfit is geometric-humanist — authoritative but not sterile.
+  // DM Sans is highly legible at small sizes on camera labels.
+  //
+
+  static TextTheme get textTheme => TextTheme(
+    displayLarge: GoogleFonts.outfit(
+      fontSize: 38, fontWeight: FontWeight.w700,
+      color: textPrimary, letterSpacing: -1.5, height: 1.05,
     ),
-    displayMedium: GoogleFonts.syne(
-      fontSize: 26,
-      fontWeight: FontWeight.w700,
-      color: primary,
-      letterSpacing: -0.3,
+    displayMedium: GoogleFonts.outfit(
+      fontSize: 30, fontWeight: FontWeight.w700,
+      color: textPrimary, letterSpacing: -0.8, height: 1.1,
     ),
-    // Headings
-    headlineLarge: GoogleFonts.syne(
-      fontSize: 22,
-      fontWeight: FontWeight.w600,
-      color: primary,
+    displaySmall: GoogleFonts.outfit(
+      fontSize: 24, fontWeight: FontWeight.w600,
+      color: textPrimary, letterSpacing: -0.4,
     ),
-    headlineMedium: GoogleFonts.syne(
-      fontSize: 18,
-      fontWeight: FontWeight.w600,
-      color: primary,
+    headlineLarge: GoogleFonts.outfit(
+      fontSize: 22, fontWeight: FontWeight.w600,
+      color: textPrimary, letterSpacing: -0.3,
     ),
-    headlineSmall: GoogleFonts.syne(
-      fontSize: 16,
-      fontWeight: FontWeight.w600,
-      color: primary,
+    headlineMedium: GoogleFonts.outfit(
+      fontSize: 18, fontWeight: FontWeight.w600,
+      color: textPrimary, letterSpacing: -0.1,
     ),
-    // Body
+    headlineSmall: GoogleFonts.outfit(
+      fontSize: 15, fontWeight: FontWeight.w600,
+      color: textPrimary,
+    ),
     bodyLarge: GoogleFonts.dmSans(
-      fontSize: 16,
-      fontWeight: FontWeight.w400,
-      color: primary,
+      fontSize: 16, fontWeight: FontWeight.w400,
+      color: textPrimary, height: 1.6,
     ),
     bodyMedium: GoogleFonts.dmSans(
-      fontSize: 14,
-      fontWeight: FontWeight.w400,
-      color: secondary,
+      fontSize: 14, fontWeight: FontWeight.w400,
+      color: textSecondary, height: 1.55,
     ),
     bodySmall: GoogleFonts.dmSans(
-      fontSize: 12,
-      fontWeight: FontWeight.w400,
-      color: muted,
+      fontSize: 12, fontWeight: FontWeight.w400,
+      color: textHint, height: 1.45,
     ),
-    // Labels
     labelLarge: GoogleFonts.dmSans(
-      fontSize: 14,
-      fontWeight: FontWeight.w600,
-      color: primary,
-      letterSpacing: 0.2,
+      fontSize: 14, fontWeight: FontWeight.w600,
+      color: textPrimary, letterSpacing: 0.1,
     ),
     labelMedium: GoogleFonts.dmSans(
-      fontSize: 12,
-      fontWeight: FontWeight.w500,
-      color: secondary,
-      letterSpacing: 0.3,
+      fontSize: 12, fontWeight: FontWeight.w500,
+      color: textSecondary, letterSpacing: 0.2,
     ),
     labelSmall: GoogleFonts.dmSans(
-      fontSize: 10,
-      fontWeight: FontWeight.w500,
-      color: muted,
-      letterSpacing: 0.5,
+      fontSize: 10, fontWeight: FontWeight.w500,
+      color: textHint, letterSpacing: 0.5,
     ),
   );
 
-  // ─── Global Transitions ───────────────────────────────────────────────────
-
-  /// Applies a smooth, premium fade-and-scale transition across the app
-  /// instead of the harsh default Android slide.
-  static const PageTransitionsTheme _pageTransitions = PageTransitionsTheme(
-    builders: {
-      TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-    },
-  );
-
-  // ─── Dark Theme ──────────────────────────────────────────────────────────────
+  // ── Theme Data ─────────────────────────────────────────────────────────────
 
   static ThemeData get darkTheme => ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    scaffoldBackgroundColor: backgroundDark,
-    textTheme: _buildTextTheme(textPrimary, textSecondary, textMuted),
-    pageTransitionsTheme: _pageTransitions,
+    scaffoldBackgroundColor: bgBase,
+    textTheme: textTheme,
 
     colorScheme: const ColorScheme.dark(
-      primary: amber,
-      onPrimary: textOnAmber,
-      secondary: amberLight,
-      onSecondary: textOnAmber,
-      surface: surfaceDark,
-      onSurface: textPrimary,
-      surfaceContainer: surfaceElevated,
-      outline: surfaceBorder,
-      error: offlineRed,
+      primary:          amber,
+      onPrimary:        textOnAmber,
+      secondary:        amberLight,
+      onSecondary:      textOnAmber,
+      surface:          bgSurface,
+      onSurface:        textPrimary,
+      surfaceContainer: bgCard,
+      outline:          borderSubtle,
+      error:            error,
+      onError:          textOnAmber,
     ),
 
-    appBarTheme: _buildAppBarTheme(backgroundDark, textPrimary),
-    inputDecorationTheme: _buildInputTheme(
-      surfaceElevated,
-      surfaceBorder,
-      textPrimary,
+    appBarTheme: AppBarTheme(
+      backgroundColor:        Colors.transparent,
+      elevation:              0,
+      scrolledUnderElevation: 0,
+      systemOverlayStyle:     SystemUiOverlayStyle.light,
+      titleTextStyle: GoogleFonts.outfit(
+        fontSize: 16, fontWeight: FontWeight.w600,
+        color: textPrimary,
+      ),
+      iconTheme: const IconThemeData(
+        color: textSecondary, size: 20,
+      ),
     ),
-    elevatedButtonTheme: _buildElevatedBtn(amber, textOnAmber),
-    outlinedButtonTheme: _buildOutlinedBtn(surfaceBorder, textPrimary),
-    textButtonTheme: _buildTextBtn(amber),
 
-    // Dividers
+    inputDecorationTheme: _buildInputDecoration(),
+
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: amber,
+        textStyle: GoogleFonts.dmSans(
+          fontSize: 14, fontWeight: FontWeight.w500,
+        ),
+        padding: EdgeInsets.zero,
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    ),
+
     dividerTheme: const DividerThemeData(
-      color: surfaceBorder,
-      thickness: 1,
-      space: 1,
+      color: borderSubtle, thickness: 1, space: 1,
     ),
-    snackBarTheme: _buildSnackBar(surfaceElevated, surfaceBorder, textPrimary),
+
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: bgElevated,
+      contentTextStyle: GoogleFonts.dmSans(color: textPrimary, fontSize: 13),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(rMd),
+        side: const BorderSide(color: borderSubtle),
+      ),
+      behavior: SnackBarBehavior.floating,
+      elevation: 0,
+    ),
   );
 
-  // ─── Light Theme ──────────────────────────────────────────────────────────
-
-  static ThemeData get lightTheme {
-    const bg = Color(0xFFF8F9FA);
-    const surface = Color(0xFFFFFFFF);
-    const surfaceElevated = Color(0xFFF1F3F5);
-    const border = Color(0xFFDEE2E6);
-    const textPrimaryLight = Color(0xFF212529);
-    const textSecondaryLight = Color(0xFF495057);
-    const textMutedLight = Color(0xFF868E96);
-
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.light,
-      scaffoldBackgroundColor: bg,
-      textTheme: _buildTextTheme(
-        textPrimaryLight,
-        textSecondaryLight,
-        textMutedLight,
-      ),
-      pageTransitionsTheme: _pageTransitions,
-
-      colorScheme: const ColorScheme.light(
-        primary: amber,
-        onPrimary: Colors.white,
-        secondary: amberLight,
-        onSecondary: Colors.white,
-        surface: surface,
-        onSurface: textPrimaryLight,
-        surfaceContainer: surfaceElevated,
-        outline: border,
-        error: offlineRed,
-      ),
-
-      appBarTheme: _buildAppBarTheme(bg, textPrimaryLight),
-      inputDecorationTheme: _buildInputTheme(
-        surfaceElevated,
-        border,
-        textPrimaryLight,
-      ),
-      elevatedButtonTheme: _buildElevatedBtn(amber, Colors.white),
-      outlinedButtonTheme: _buildOutlinedBtn(border, textPrimaryLight),
-      textButtonTheme: _buildTextBtn(amber),
-
-      // Dividers
-      dividerTheme: const DividerThemeData(
-        color: border,
-        thickness: 1,
-        space: 1,
-      ),
-      snackBarTheme: _buildSnackBar(surface, border, textPrimaryLight),
-    );
-  }
-
-  // ─── Reusable Component Themes ────────────────────────────────────────────
-
-  // App bar — flush with background
-  static AppBarTheme _buildAppBarTheme(Color bg, Color text) => AppBarTheme(
-    backgroundColor: bg,
-    elevation: 0,
-    scrolledUnderElevation: 0,
-    titleTextStyle: GoogleFonts.syne(
-      fontSize: 18,
-      fontWeight: FontWeight.w600,
-      color: text,
-    ),
-    iconTheme: IconThemeData(color: text),
-  );
-
-  // Input fields — subtle border, amber focus ring
-  static InputDecorationTheme _buildInputTheme(
-    Color fill,
-    Color border,
-    Color text,
-  ) => InputDecorationTheme(
-    filled: true,
-    fillColor: fill,
-    contentPadding: const EdgeInsets.symmetric(horizontal: md, vertical: 16),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(radiusMd),
-      borderSide: BorderSide(color: border),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(radiusMd),
-      borderSide: BorderSide(color: border),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(radiusMd),
-      borderSide: const BorderSide(color: amber, width: 1.5),
-    ),
-    errorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(radiusMd),
-      borderSide: const BorderSide(color: offlineRed),
-    ),
-    focusedErrorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(radiusMd),
-      borderSide: const BorderSide(color: offlineRed, width: 1.5),
-    ),
-    hintStyle: GoogleFonts.dmSans(color: border.withOpacity(0.8), fontSize: 14),
-    labelStyle: GoogleFonts.dmSans(color: text.withOpacity(0.7), fontSize: 14),
-    floatingLabelStyle: GoogleFonts.dmSans(color: amber, fontSize: 12),
-    prefixIconColor: text.withOpacity(0.5),
-    suffixIconColor: text.withOpacity(0.5),
-  );
-
-  // Primary buttons — solid amber
-  static ElevatedButtonThemeData _buildElevatedBtn(Color bg, Color fg) =>
-      ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: bg,
-          foregroundColor: fg,
-          minimumSize: const Size(double.infinity, 52),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusMd),
-          ),
-          textStyle: GoogleFonts.dmSans(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.3,
-          ),
-          elevation: 0,
+  static InputDecorationTheme _buildInputDecoration() =>
+      InputDecorationTheme(
+        filled:         true,
+        fillColor:      bgCard,
+        contentPadding: const EdgeInsets.symmetric(
+            horizontal: s16, vertical: s18),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(rMd),
+          borderSide: const BorderSide(color: borderSubtle),
         ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(rMd),
+          borderSide: const BorderSide(color: borderSubtle),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(rMd),
+          borderSide: const BorderSide(color: amber, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(rMd),
+          borderSide: const BorderSide(color: error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(rMd),
+          borderSide: const BorderSide(color: error, width: 1.5),
+        ),
+        hintStyle:          GoogleFonts.dmSans(color: textHint, fontSize: 14),
+        labelStyle:         GoogleFonts.dmSans(color: textSecondary, fontSize: 14),
+        floatingLabelStyle: GoogleFonts.dmSans(color: amber, fontSize: 12),
+        prefixIconColor:    textHint,
+        suffixIconColor:    textHint,
+        errorStyle:         GoogleFonts.dmSans(color: error, fontSize: 11),
       );
 
-  // Outlined buttons — border only
-  static OutlinedButtonThemeData _buildOutlinedBtn(Color border, Color fg) =>
-      OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: fg,
-          minimumSize: const Size(double.infinity, 52),
-          side: BorderSide(color: border),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusMd),
-          ),
-          textStyle: GoogleFonts.dmSans(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          ),
+  // Hack to use s18 in static method — just inline the value
+  static const double s18 = 18.0;
+
+  // ── Convenience Decoration Builders ───────────────────────────────────────
+  //
+  // Call these from widget files to stay DRY.
+  //
+
+  /// Glass card decoration — frosted surface with subtle border
+  static BoxDecoration glassCard({
+    double? radius,
+    Color? borderColor,
+    bool addShadow = true,
+  }) =>
+      BoxDecoration(
+        gradient: glassSurface,
+        borderRadius: BorderRadius.circular(radius ?? rLg),
+        border: Border.all(
+          color: borderColor ?? borderSubtle,
+          width: 1,
         ),
+        boxShadow: addShadow
+            ? [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.4),
+                  blurRadius: 32,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
       );
 
-  // Text buttons — amber label, no background
-  static TextButtonThemeData _buildTextBtn(Color fg) => TextButtonThemeData(
-    style: TextButton.styleFrom(
-      foregroundColor: fg,
-      textStyle: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w500),
-    ),
-  );
-
-  // Snackbars
-  static SnackBarThemeData _buildSnackBar(Color bg, Color border, Color text) =>
-      SnackBarThemeData(
-        backgroundColor: bg,
-        contentTextStyle: GoogleFonts.dmSans(color: text, fontSize: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusMd),
-          side: BorderSide(color: border),
-        ),
-        behavior: SnackBarBehavior.floating,
+  /// Amber glow container — for icon holders, badges
+  static BoxDecoration amberIconBox({double radius = rMd}) =>
+      BoxDecoration(
+        gradient: amberTint,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: borderAmber),
+        boxShadow: [
+          BoxShadow(
+            color: amberGlow10,
+            blurRadius: 16,
+            spreadRadius: 2,
+          ),
+        ],
       );
 }

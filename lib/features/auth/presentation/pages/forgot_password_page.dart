@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../bloc/auth_bloc.dart';
@@ -33,138 +35,142 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.bgBase,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, size: 16),
-          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+          onPressed: () => context.pop(),
         ),
       ),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: BlocConsumer<AuthBloc, AuthState>(
-          listener: (context, state) {
-            // NEW: Listen for the specific success action, show notification, and pop safely.
-            if (state is AuthActionSuccess) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  backgroundColor:
-                      AppTheme.onlineGreen, // Use the success color
-                ),
-              );
-              Navigator.pop(context);
-            }
-          },
-          builder: (context, state) {
-            final isLoading = state is AuthLoading;
-            final errorMessage = state is AuthError ? state.message : null;
+      body: PageBackground(
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          behavior: HitTestBehavior.opaque,
+          child: BlocConsumer<AuthBloc, AuthState>(
+            listener: (context, state) {
+              if (state is AuthActionSuccess) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
+                    backgroundColor: AppTheme.success,
+                  ),
+                );
+                context.pop();
+              }
+            },
+            builder: (context, state) {
+              final isLoading = state is AuthLoading;
+              final errorMessage = state is AuthError ? state.message : null;
 
-            return SafeArea(
-              child: CustomScrollView(
-                slivers: [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.lg,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: AppTheme.xl),
+              return SafeArea(
+                child: CustomScrollView(
+                  slivers: [
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.s24,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: AppTheme.s48),
 
-                          AnimatedEntrance(
-                            delay: const Duration(milliseconds: 100),
-                            child: Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: AppTheme.amberGlow,
-                                borderRadius: BorderRadius.circular(
-                                  AppTheme.radiusMd,
-                                ),
-                                border: Border.all(color: AppTheme.amberDim),
-                              ),
-                              child: const Icon(
-                                Icons.lock_reset_outlined,
-                                color: AppTheme.amber,
-                                size: 24,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: AppTheme.lg),
-
-                          AnimatedEntrance(
-                            delay: const Duration(milliseconds: 200),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Reset Password',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.headlineLarge,
-                                ),
-                                const SizedBox(height: AppTheme.xs),
-                                Text(
-                                  "Enter your email and we'll send you instructions to reset your password.",
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: AppTheme.xl),
-
-                          AnimatedEntrance(
-                            delay: const Duration(milliseconds: 300),
-                            child: Form(
-                              key: _formKey,
-                              child: AppTextField(
-                                label: 'Email',
-                                controller: _emailController,
-                                keyboardType: TextInputType.emailAddress,
-                                prefixIcon: Icons.mail_outline,
-                                textInputAction: TextInputAction.done,
-                                onSubmitted: (_) => _submit(),
-                                validator: (v) {
-                                  if (v == null || v.isEmpty)
-                                    return 'Email is required';
-                                  if (!v.contains('@'))
-                                    return 'Enter a valid email';
-                                  return null;
-                                },
-                              ),
-                            ),
-                          ),
-
-                          if (errorMessage != null) ...[
-                            const SizedBox(height: AppTheme.md),
+                            // ── Icon ────────────────────────────────────
                             AnimatedEntrance(
                               delay: Duration.zero,
-                              child: ErrorBanner(message: errorMessage),
+                              child: Container(
+                                width: 52,
+                                height: 52,
+                                decoration: AppTheme.amberIconBox(),
+                                child: const Icon(
+                                  Icons.lock_reset_rounded,
+                                  color: AppTheme.amber,
+                                  size: 24,
+                                ),
+                              ),
                             ),
+
+                            const SizedBox(height: AppTheme.s24),
+
+                            // ── Headline ─────────────────────────────────
+                            AnimatedEntrance(
+                              delay: const Duration(milliseconds: 80),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Reset password',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.displaySmall,
+                                  ),
+                                  const SizedBox(height: AppTheme.s6),
+                                  Text(
+                                    "Enter your email and we'll send you\ninstructions to reset your password.",
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: AppTheme.s32),
+
+                            // ── Form ─────────────────────────────────────
+                            AnimatedEntrance(
+                              delay: const Duration(milliseconds: 160),
+                              child: Form(
+                                key: _formKey,
+                                child: AppTextField(
+                                  label: 'Email',
+                                  controller: _emailController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  prefixIcon: Icons.mail_outline_rounded,
+                                  textInputAction: TextInputAction.done,
+                                  onSubmitted: (_) => _submit(),
+                                  validator: (v) {
+                                    if (v == null || v.isEmpty)
+                                      return 'Email is required';
+                                    if (!v.contains('@'))
+                                      return 'Enter a valid email';
+                                    return null;
+                                  },
+                                ),
+                              ),
+                            ),
+
+                            // ── Error ────────────────────────────────────
+                            if (errorMessage != null) ...[
+                              const SizedBox(height: AppTheme.s16),
+                              AnimatedEntrance(
+                                delay: Duration.zero,
+                                child: ErrorBanner(message: errorMessage),
+                              ),
+                            ],
+
+                            const Spacer(),
+
+                            // ── CTA ──────────────────────────────────────
+                            AnimatedEntrance(
+                              delay: const Duration(milliseconds: 240),
+                              child: PrimaryButton(
+                                label: 'Send Reset Link',
+                                onPressed: _submit,
+                                isLoading: isLoading,
+                              ),
+                            ),
+                            const SizedBox(height: AppTheme.s24),
                           ],
-
-                          const Spacer(),
-                          const SizedBox(height: AppTheme.xl),
-
-                          AnimatedEntrance(
-                            delay: const Duration(milliseconds: 400),
-                            child: PrimaryButton(
-                              label: 'Send Reset Link',
-                              onPressed: _submit,
-                              isLoading: isLoading,
-                            ),
-                          ),
-                          const SizedBox(height: AppTheme.md),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
