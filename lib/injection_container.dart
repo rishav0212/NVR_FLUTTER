@@ -1,9 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
+import 'package:http/http.dart';
 import 'core/network/api_client.dart';
 import 'features/auth/data/repositories/auth_repository.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/devices/data/repositories/device_repository.dart';
+import 'features/devices/presentation/bloc/device_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -34,4 +37,9 @@ Future<void> initDi() async {
   getIt.registerLazySingleton<AuthBloc>(
     () => AuthBloc(getIt<AuthRepository>()),
   );
+
+  // --- DEVICES ---
+  getIt.registerLazySingleton(() => DeviceRepository(getIt<ApiClient>()));
+  // Factory ensures a fresh instance per screen for the wizard!
+  getIt.registerFactory(() => DeviceBloc(getIt<DeviceRepository>()));
 }
