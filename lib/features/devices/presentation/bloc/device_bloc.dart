@@ -22,7 +22,12 @@ class CheckDeviceIdentifier extends DeviceEvent {
 class RegisterDevice extends DeviceEvent {
   final String identifier, name, adminPin;
   final String? location;
-  const RegisterDevice({required this.identifier, required this.name, required this.adminPin, this.location});
+  const RegisterDevice({
+    required this.identifier,
+    required this.name,
+    required this.adminPin,
+    this.location,
+  });
 }
 
 class LinkDevice extends DeviceEvent {
@@ -31,7 +36,16 @@ class LinkDevice extends DeviceEvent {
 }
 
 class LoadMyDevices extends DeviceEvent {}
+
 class RefreshDevices extends DeviceEvent {} // Triggered by Pull-to-Refresh
+
+// Added Delete Event
+class DeleteDevice extends DeviceEvent {
+  final String deviceId;
+  const DeleteDevice(this.deviceId);
+  @override
+  List<Object?> get props => [deviceId];
+}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // STATES
@@ -46,15 +60,18 @@ class DeviceInitial extends DeviceState {}
 
 // Wizard States
 class DeviceChecking extends DeviceState {}
+
 class DeviceNotFound extends DeviceState {
   final String identifier;
   const DeviceNotFound(this.identifier);
 }
+
 class DeviceFound extends DeviceState {
   final String identifier;
   final String deviceName;
   const DeviceFound({required this.identifier, required this.deviceName});
 }
+
 class DeviceOperationLoading extends DeviceState {}
 
 // Success States
@@ -62,6 +79,7 @@ class DeviceRegistered extends DeviceState {
   final DeviceCredentials credentials;
   const DeviceRegistered(this.credentials);
 }
+
 class DeviceLinked extends DeviceState {
   final NvrDevice device;
   const DeviceLinked(this.device);
@@ -76,13 +94,21 @@ class DevicesLoaded extends DeviceState {
   List<Object?> get props => [devices, isRefreshing];
 }
 
-// Error State
+// Error & Lockout States
 class DeviceError extends DeviceState {
   final String message;
   final int? attemptsRemaining;
   const DeviceError({required this.message, this.attemptsRemaining});
   @override
   List<Object?> get props => [message, attemptsRemaining];
+}
+
+// THE MISSING STATE FOR THE LOCKOUT TIMER!
+class DevicePinLocked extends DeviceState {
+  final DateTime lockedUntil;
+  const DevicePinLocked(this.lockedUntil);
+  @override
+  List<Object?> get props => [lockedUntil];
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -97,28 +123,48 @@ class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
     on<LinkDevice>(_onLinkDevice);
     on<LoadMyDevices>(_onLoadMyDevices);
     on<RefreshDevices>(_onRefreshDevices);
+    on<DeleteDevice>(_onDeleteDevice);
   }
 
-  Future<void> _onCheckDevice(CheckDeviceIdentifier event, Emitter<DeviceState> emit) async {
+  Future<void> _onCheckDevice(
+    CheckDeviceIdentifier event,
+    Emitter<DeviceState> emit,
+  ) async {
     emit(DeviceChecking());
     try {
-      final result = await _repo.checkDevice(event.identifier.trim().toUpperCase());
-      
+      final result = await _repo.checkDevice(
+        event.identifier.trim().toUpperCase(),
+      );
+
       if (result.alreadyLinked) {
-        emit(const DeviceError(message: "You already have access to this device."));
+        emit(
+          const DeviceError(message: "You already have access to this device."),
+        );
       } else if (result.exists) {
-        emit(DeviceFound(identifier: event.identifier, deviceName: result.deviceName!));
+        emit(
+          DeviceFound(
+            identifier: event.identifier,
+            deviceName: result.deviceName ?? 'Device',
+          ),
+        );
       } else {
         emit(DeviceNotFound(event.identifier));
       }
     } on DeviceException catch (e) {
       emit(DeviceError(message: e.message));
     } catch (_) {
-      emit(const DeviceError(message: 'Connection failed. Please check your network.'));
+      emit(
+        const DeviceError(
+          message: 'Connection failed. Please check your network.',
+        ),
+      );
     }
   }
 
-  Future<void> _onRegisterDevice(RegisterDevice event, Emitter<DeviceState> emit) async {
+  Future<void> _onRegisterDevice(
+    RegisterDevice event,
+    Emitter<DeviceState> emit,
+  ) async {
     emit(DeviceOperationLoading());
     try {
       final creds = await _repo.registerDevice(
@@ -133,17 +179,36 @@ class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
     }
   }
 
-  Future<void> _onLinkDevice(LinkDevice event, Emitter<DeviceState> emit) async {
+  Future<void> _onLinkDevice(
+    LinkDevice event,
+    Emitter<DeviceState> emit,
+  ) async {
     emit(DeviceOperationLoading());
     try {
-      final device = await _repo.linkDevice(identifier: event.identifier, adminPin: event.adminPin);
+      final device = await _repo.linkDevice(
+        identifier: event.identifier,
+        adminPin: event.adminPin,
+      );
       emit(DeviceLinked(device));
     } on DeviceException catch (e) {
-      emit(DeviceError(message: e.message, attemptsRemaining: e.attemptsRemaining));
+      // If the backend sent a lockedUntil timestamp, trigger the timer UI!
+      if (e.lockedUntil != null) {
+        emit(DevicePinLocked(e.lockedUntil!));
+      } else {
+        emit(
+          DeviceError(
+            message: e.message,
+            attemptsRemaining: e.attemptsRemaining,
+          ),
+        );
+      }
     }
   }
 
-  Future<void> _onLoadMyDevices(LoadMyDevices event, Emitter<DeviceState> emit) async {
+  Future<void> _onLoadMyDevices(
+    LoadMyDevices event,
+    Emitter<DeviceState> emit,
+  ) async {
     emit(DeviceOperationLoading());
     try {
       final devices = await _repo.getMyDevices();
@@ -153,21 +218,40 @@ class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
     }
   }
 
-  Future<void> _onRefreshDevices(RefreshDevices event, Emitter<DeviceState> emit) async {
+  Future<void> _onRefreshDevices(
+    RefreshDevices event,
+    Emitter<DeviceState> emit,
+  ) async {
     if (state is DevicesLoaded) {
       final currentState = state as DevicesLoaded;
-      // Prevent UI flash by keeping the old list visible but setting isRefreshing = true
       emit(DevicesLoaded(devices: currentState.devices, isRefreshing: true));
     }
-    
+
     try {
       final devices = await _repo.getMyDevices();
       emit(DevicesLoaded(devices: devices, isRefreshing: false));
     } catch (_) {
-      // If refresh fails, revert the refreshing state
       if (state is DevicesLoaded) {
-         emit(DevicesLoaded(devices: (state as DevicesLoaded).devices, isRefreshing: false));
+        emit(
+          DevicesLoaded(
+            devices: (state as DevicesLoaded).devices,
+            isRefreshing: false,
+          ),
+        );
       }
+    }
+  }
+
+  Future<void> _onDeleteDevice(
+    DeleteDevice event,
+    Emitter<DeviceState> emit,
+  ) async {
+    emit(DeviceOperationLoading());
+    try {
+      await _repo.deleteDevice(event.deviceId);
+      add(LoadMyDevices()); // Reload the list after deletion
+    } on DeviceException catch (e) {
+      emit(DeviceError(message: e.message));
     }
   }
 }

@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../features/devices/presentation/pages/device_detail_page.dart';
+import '../../features/devices/presentation/pages/device_dashboard_page.dart'; // Add this
 import 'package:go_router/go_router.dart';
 import '../constants/app_constants.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
@@ -15,6 +18,7 @@ import '../../features/devices/presentation/pages/add_device_page.dart';
 import '../../features/devices/presentation/pages/register_device_page.dart';
 import '../../features/devices/presentation/pages/pin_entry_page.dart';
 import '../../features/devices/presentation/pages/credentials_page.dart';
+
 import '../../injection_container.dart';
 
 class AppRouter {
@@ -88,39 +92,80 @@ class AppRouter {
       ),
       GoRoute(
         path: AppConstants.homeRoute,
-        pageBuilder: (context, state) => _buildPage(state, const HomePage()),
+        pageBuilder: (context, state) =>
+            _buildPage(state, const DeviceDashboardPage()),
       ),
+      // ── Device wizard routes ─────────────────────────────────────────────
+      //
+      // Each wizard page gets a fresh DeviceBloc instance via BlocProvider.
+      // Using pageBuilder keeps the same slide+fade transition as auth routes.
+      //
       GoRoute(
         path: AppConstants.addDeviceRoute,
-        builder: (context, state) => BlocProvider(
-          create: (_) => getIt<DeviceBloc>(), // <--- FIX THIS
-          child: const AddDevicePage(),
+        pageBuilder: (context, state) => _buildPage(
+          state,
+          BlocProvider(
+            create: (_) => getIt<DeviceBloc>(),
+            child: const AddDevicePage(),
+          ),
         ),
       ),
       GoRoute(
         path: AppConstants.registerDeviceRoute,
-        builder: (context, state) => BlocProvider(
-          create: (_) => getIt<DeviceBloc>(), // <--- FIX THIS
-          child: RegisterDevicePage(identifier: state.extra as String),
+        pageBuilder: (context, state) => _buildPage(
+          state,
+          BlocProvider(
+            create: (_) => getIt<DeviceBloc>(),
+            child: RegisterDevicePage(identifier: state.extra as String),
+          ),
         ),
       ),
       GoRoute(
         path: AppConstants.pinEntryRoute,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final data = state.extra as Map<String, String>;
-          return BlocProvider(
-            create: (_) => getIt<DeviceBloc>(), // <--- FIX THIS
-            child: PinEntryPage(
-              identifier: data['identifier']!,
-              deviceName: data['deviceName']!,
+          return _buildPage(
+            state,
+            BlocProvider(
+              create: (_) => getIt<DeviceBloc>(),
+              child: PinEntryPage(
+                identifier: data['identifier']!,
+                deviceName: data['deviceName']!,
+              ),
             ),
           );
         },
       ),
       GoRoute(
         path: AppConstants.credentialsRoute,
-        builder: (context, state) =>
-            CredentialsPage(credentials: state.extra as DeviceCredentials),
+        pageBuilder: (context, state) => _buildPage(
+          state,
+          CredentialsPage(credentials: state.extra as DeviceCredentials),
+        ),
+      ),
+
+      GoRoute(
+        path: '/devices/:id',
+        pageBuilder: (context, state) => _buildPage(
+          state,
+          BlocProvider( // <--- Wrap in BlocProvider
+            create: (_) => getIt<DeviceBloc>(),
+            child: DeviceDetailPage(deviceId: state.pathParameters['id']!),
+          ),
+        ),
+      ),
+
+      // ── Device detail route ──────────────────────────────────────────────
+      //
+      // Reached via context.go('/devices/$id') from credentials or pin pages.
+      // Path param :id is the device UUID.
+      //
+      GoRoute(
+        path: '/devices/:id',
+        pageBuilder: (context, state) => _buildPage(
+          state,
+          DeviceDetailPage(deviceId: state.pathParameters['id']!),
+        ),
       ),
     ],
   );

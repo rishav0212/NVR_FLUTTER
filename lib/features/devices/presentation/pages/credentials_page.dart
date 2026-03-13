@@ -1,139 +1,275 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/app_haptics.dart';
-import '../../../../shared/widgets/accent_header.dart';
-import '../../../../shared/widgets/noise_overlay.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../../data/models/device_models.dart';
+
+/// Displays the generated SIP credentials immediately after registration.
+///
+/// CRITICAL UX RULES:
+///   - PopScope(canPop: false) — user CANNOT swipe back. They must tap "Done".
+///   - context.pushReplacement was used to get here, so the registration form
+///     is already gone from the back-stack.
+///   - context.go() on "Done" clears the remaining wizard stack.
+
+/// Each credential is shown in a tappable row. Tap → Clipboard + haptic + snackbar.
+/// The amber warning banner at the top explains the password is shown only once.
+
 
 class CredentialsPage extends StatelessWidget {
   final DeviceCredentials credentials;
 
   const CredentialsPage({super.key, required this.credentials});
 
-  void _copy(BuildContext context, String text, String label) {
-    Clipboard.setData(ClipboardData(text: text));
-    AppHaptics.success();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label copied!')));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // PopScope prevents the user from swiping back to the registration form
-    return PopScope(
-      canPop: false,
-      child: Scaffold(
-        body: Stack(
-          children: [
-            Container(decoration: const BoxDecoration(gradient: AppTheme.darkGradient)),
-            const NoiseOverlay(),
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 40),
-                    const AnimatedEntrance(
-                      delay: Duration(milliseconds: 100),
-                      child: AccentHeader(
-                        title: 'Registration Complete',
-                        subtitle: 'Enter these SIP credentials into your physical NVR to connect it to the cloud platform.',
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    AnimatedEntrance(
-                      delay: const Duration(milliseconds: 200),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppTheme.error.withOpacity(0.1),
-                          border: Border.all(color: AppTheme.error.withOpacity(0.3)),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(LucideIcons.alertTriangle, color: AppTheme.error),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Save these details now. For security reasons, the SIP Password will never be shown again.',
-                                style: AppTheme.bodyMedium.copyWith(color: AppTheme.error),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    AnimatedEntrance(
-                      delay: const Duration(milliseconds: 300),
-                      child: _buildRow(context, 'SIP Server IP', credentials.sipServerIp),
-                    ),
-                    const SizedBox(height: 12),
-                    AnimatedEntrance(
-                      delay: const Duration(milliseconds: 400),
-                      child: _buildRow(context, 'SIP Server Port', credentials.sipServerPort.toString()),
-                    ),
-                    const SizedBox(height: 12),
-                    AnimatedEntrance(
-                      delay: const Duration(milliseconds: 500),
-                      child: _buildRow(context, 'SIP Device ID', credentials.sipDeviceId),
-                    ),
-                    const SizedBox(height: 12),
-                    AnimatedEntrance(
-                      delay: const Duration(milliseconds: 600),
-                      child: _buildRow(context, 'SIP Password', credentials.sipPassword, isPassword: true),
-                    ),
-                    const Spacer(),
-                    PrimaryButton(
-                      text: "I've Saved These Details",
-                      onPressed: () {
-                        AppHaptics.light();
-                        // Go directly to the new device's detail page
-                        context.go('/devices/${credentials.deviceId}');
-                      },
-                    ),
-                    const SizedBox(height: 32),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+  void _copyToClipboard(BuildContext context, String value, String label) {
+    Clipboard.setData(ClipboardData(text: value));
+    AppHaptics.light();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$label copied to clipboard'),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
 
-  Widget _buildRow(BuildContext context, String label, String value, {bool isPassword = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: AppTheme.glassCard(context), // Using your specific Glassmorphic theme
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: AppTheme.bodySmall.copyWith(color: Colors.white60)),
-              const SizedBox(height: 4),
-              Text(
-                value, 
-                style: AppTheme.bodyLarge.copyWith(
-                  fontFamily: 'monospace', 
-                  color: isPassword ? AppTheme.accentColor : Colors.white
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: PageBackground(
+          child: SafeArea(
+            child: CustomScrollView(
+              slivers: [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.s24,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(
+                          height: AppTheme.s48,
+                        ), // Matched spacing to Auth
+                        // ── Icon (Phase 1 Consistent) ────────────────────────
+                        AnimatedEntrance(
+                          delay: Duration.zero,
+                          child: Container(
+                            width: 52,
+                            height: 52,
+                            decoration: AppTheme.amberIconBox(context),
+                            child: const Icon(
+                              Icons.vpn_key_rounded, // Standard Material Icon
+                              color: AppTheme.amber,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppTheme.s24),
+
+                        // ── Header (Phase 1 Consistent) ──────────────────────
+                        AnimatedEntrance(
+                          delay: const Duration(milliseconds: 80),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Registration Complete',
+                                style: Theme.of(context).textTheme.displaySmall,
+                              ),
+                              const SizedBox(height: AppTheme.s6),
+                              Text(
+                                'Enter these SIP credentials into your NVR to connect it to the platform.',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: AppTheme.s24),
+
+                        // ── Amber warning banner ────────────────────────────
+                        AnimatedEntrance(
+                          delay: const Duration(milliseconds: 160),
+                          child: Container(
+                            padding: const EdgeInsets.all(AppTheme.s16),
+                            decoration: BoxDecoration(
+                              color: AppTheme.amber.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(AppTheme.rMd),
+                              border: Border.all(
+                                color: AppTheme.amber.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons
+                                      .warning_amber_rounded, // Standard Material Icon
+                                  color: AppTheme.amber,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: AppTheme.s12),
+                                Expanded(
+                                  child: Text(
+                                    'Save these details now. The SIP Password will never be shown again for security.',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: AppTheme.amberLight,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppTheme.s28),
+
+                        // ── Credential rows ───────────────────────────────
+                        AnimatedEntrance(
+                          delay: const Duration(milliseconds: 240),
+                          child: Column(
+                            children: [
+                              _CredentialRow(
+                                label: 'SIP Server',
+                                value: credentials.sipServerIp,
+                                onCopy: () => _copyToClipboard(
+                                  context,
+                                  credentials.sipServerIp,
+                                  'SIP Server',
+                                ),
+                              ),
+                              const SizedBox(height: AppTheme.s8),
+                              _CredentialRow(
+                                label: 'SIP Port',
+                                value: credentials.sipServerPort.toString(),
+                                onCopy: () => _copyToClipboard(
+                                  context,
+                                  credentials.sipServerPort.toString(),
+                                  'SIP Port',
+                                ),
+                              ),
+                              const SizedBox(height: AppTheme.s8),
+                              _CredentialRow(
+                                label: 'SIP Device ID',
+                                value: credentials.sipDeviceId,
+                                onCopy: () => _copyToClipboard(
+                                  context,
+                                  credentials.sipDeviceId,
+                                  'SIP Device ID',
+                                ),
+                              ),
+                              const SizedBox(height: AppTheme.s8),
+                              _CredentialRow(
+                                label: 'SIP Password',
+                                value: credentials.sipPassword,
+                                isHighlighted: true,
+                                onCopy: () => _copyToClipboard(
+                                  context,
+                                  credentials.sipPassword,
+                                  'SIP Password',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const Spacer(),
+                        const SizedBox(height: AppTheme.s28),
+
+                        // ── Done CTA ──────────────────────────────────────
+                        AnimatedEntrance(
+                          delay: const Duration(milliseconds: 320),
+                          child: PrimaryButton(
+                            label: "I've saved these — Done",
+                            icon: Icons.check_circle_outline_rounded,
+                            onPressed: () {
+                              AppHaptics.success();
+                              context.go('/devices/${credentials.deviceId}');
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: AppTheme.s32),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CREDENTIAL ROW
+// ─────────────────────────────────────────────────────────────────────────────
+class _CredentialRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final VoidCallback onCopy;
+  final bool isHighlighted;
+
+  const _CredentialRow({
+    required this.label,
+    required this.value,
+    required this.onCopy,
+    this.isHighlighted = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.s16,
+        vertical: AppTheme.s12,
+      ),
+      decoration: AppTheme.glassCard(context, radius: AppTheme.rMd),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.s4),
+                Text(
+                  value,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontFamily: 'monospace',
+                    color: isHighlighted
+                        ? AppTheme.amber
+                        : theme.colorScheme.onSurface,
+                    fontWeight: isHighlighted ? FontWeight.w600 : null,
+                  ),
+                ),
+              ],
+            ),
           ),
           IconButton(
-            icon: const Icon(LucideIcons.copy, color: AppTheme.primaryColor),
-            onPressed: () => _copy(context, value, label),
-          )
+            onPressed: onCopy,
+            icon: const Icon(
+              Icons.copy_rounded,
+              size: 18,
+            ), // Standard Material Icon
+            color: AppTheme.amber,
+            tooltip: 'Copy $label',
+          ),
         ],
       ),
     );

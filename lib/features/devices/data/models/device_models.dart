@@ -34,8 +34,13 @@ enum DevicePermission {
 class DeviceException implements Exception {
   final String message;
   final int? attemptsRemaining;
+  final DateTime? lockedUntil;
 
-  DeviceException({required this.message, this.attemptsRemaining});
+  DeviceException({
+    required this.message,
+    this.attemptsRemaining,
+    this.lockedUntil,
+  });
 
   @override
   String toString() => message;
@@ -77,6 +82,25 @@ class NvrDevice extends Equatable {
       myPermissions: permsList
           .map((e) => DevicePermission.fromString(e.toString()))
           .toList(),
+    );
+  }
+
+  // Required for seamlessly updating device states (like going ONLINE/OFFLINE via WebSockets)
+  NvrDevice copyWith({
+    String? id,
+    String? identifier,
+    String? name,
+    String? location,
+    String? status,
+    List<DevicePermission>? myPermissions,
+  }) {
+    return NvrDevice(
+      id: id ?? this.id,
+      identifier: identifier ?? this.identifier,
+      name: name ?? this.name,
+      location: location ?? this.location,
+      status: status ?? this.status,
+      myPermissions: myPermissions ?? this.myPermissions,
     );
   }
 

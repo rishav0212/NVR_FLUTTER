@@ -8,20 +8,6 @@ class DeviceRepository {
 
   DeviceRepository(this._apiClient);
 
-  DeviceException _handleError(DioException e) {
-    int? attempts;
-    // Extract metadata injected by our Spring Boot GlobalExceptionHandler
-    final responseData = e.response?.data;
-    if (responseData is Map<String, dynamic> && responseData['data'] is Map<String, dynamic>) {
-      attempts = responseData['data']['attemptsRemaining'];
-    }
-    
-    return DeviceException(
-      message: e.error?.toString() ?? 'An unknown error occurred.',
-      attemptsRemaining: attempts,
-    );
-  }
-
   Future<DeviceCheckResult> checkDevice(String identifier) async {
     try {
       final response = await _apiClient.dio.get(
@@ -43,7 +29,12 @@ class DeviceRepository {
     try {
       final response = await _apiClient.dio.post(
         AppConstants.deviceRegisterEndpoint,
-        data: {'identifier': identifier, 'name': name, 'location': location, 'adminPin': adminPin},
+        data: {
+          'identifier': identifier,
+          'name': name,
+          'location': location,
+          'adminPin': adminPin,
+        },
       );
       return DeviceCredentials.fromJson(response.data['data']);
     } on DioException catch (e) {
@@ -51,7 +42,10 @@ class DeviceRepository {
     }
   }
 
-  Future<NvrDevice> linkDevice({required String identifier, required String adminPin}) async {
+  Future<NvrDevice> linkDevice({
+    required String identifier,
+    required String adminPin,
+  }) async {
     try {
       final response = await _apiClient.dio.post(
         AppConstants.deviceLinkEndpoint,
@@ -68,6 +62,46 @@ class DeviceRepository {
       final response = await _apiClient.dio.get(AppConstants.devicesEndpoint);
       final List<dynamic> list = response.data['data'];
       return list.map((json) => NvrDevice.fromJson(json)).toList();
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  // ONLY ONE _handleError METHOD NOW!
+  DeviceException _handleError(DioException e) {
+    int? attempts;
+    DateTime? lockedTime;
+
+    final responseData = e.response?.data;
+    if (responseData is Map<String, dynamic> &&
+        responseData['data'] is Map<String, dynamic>) {
+      attempts = responseData['data']['attemptsRemaining'];
+      if (responseData['data']['lockedUntil'] != null) {
+        lockedTime = DateTime.parse(
+          responseData['data']['lockedUntil'],
+        ).toLocal();
+      }
+    }
+
+    // Tiny upgrade: Also safely attempt to grab the exact Spring Boot error message!
+    String errorMessage = 'An unknown error occurred.';
+    if (responseData is Map<String, dynamic> &&
+        responseData['message'] != null) {
+      errorMessage = responseData['message'];
+    } else if (e.error != null) {
+      errorMessage = e.error.toString();
+    }
+
+    return DeviceException(
+      message: errorMessage,
+      attemptsRemaining: attempts,
+      lockedUntil: lockedTime,
+    );
+  }
+
+  Future<void> deleteDevice(String deviceId) async {
+    try {
+      await _apiClient.dio.delete('${AppConstants.devicesEndpoint}/$deviceId');
     } on DioException catch (e) {
       throw _handleError(e);
     }
