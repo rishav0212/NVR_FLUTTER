@@ -1,3 +1,6 @@
+// ═════════════════════════════════════════════════════════════════════════════
+// FILE: lib/shared/widgets/shared_widgets.dart
+// ═════════════════════════════════════════════════════════════════════════════
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -5,7 +8,7 @@ import '../../core/theme/app_theme.dart';
 import 'noise_overlay.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
-// 
+//
 // ═════════════════════════════════════════════════════════════════════════════
 //
 // Every reusable component lives here. No hardcoded values — all from AppTheme.
@@ -74,13 +77,11 @@ class _AnimatedEntranceState extends State<AnimatedEntrance>
 
     _ctrl = AnimationController(vsync: this, duration: widget.duration);
 
-    // Opacity fades in over the first 75% of the animation
     _opacity = CurvedAnimation(
       parent: _ctrl,
       curve: const Interval(0.0, 0.75, curve: AppTheme.curveEntrance),
     );
 
-    // Slide covers the full animation duration
     _slide = Tween<Offset>(
       begin: Offset(0, widget.slideDistance / 200),
       end: Offset.zero,
@@ -104,13 +105,9 @@ class _AnimatedEntranceState extends State<AnimatedEntrance>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, child) => FadeTransition(
-        opacity: _opacity,
-        child: SlideTransition(position: _slide, child: child),
-      ),
-      child: widget.child,
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(position: _slide, child: widget.child),
     );
   }
 }
@@ -193,46 +190,56 @@ class PageBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     final ext = Theme.of(context).extension<AppColorsExtension>()!;
 
-    // Wrap the entire background stack with the film grain noise
     return NoiseOverlay(
-      opacity: Theme.of(context).brightness == Brightness.dark ? 0.09 : 0.06,
+      opacity: Theme.of(context).brightness == Brightness.dark ? 0.02 : 0.03,
       child: Stack(
         children: [
-          Container(decoration: BoxDecoration(gradient: ext.bgGradient)),
-          Positioned(
-            top: -150,
-            left: -150,
-            width: 500,
-            height: 500,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: ext.meshAmber,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -100,
-            right: -100,
-            width: 400,
-            height: 400,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: ext.meshIndigo,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Positioned(
-            top: 200,
-            right: -50,
-            width: 350,
-            height: 350,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: ext.meshViolet,
-                shape: BoxShape.circle,
-              ),
+          // Hardware acceleration boundary.
+          // Radial gradients are mathematically complex for the Skia/Impeller graphics engine.
+          // Placing them inside a RepaintBoundary caches their painted output as a rasterized texture.
+          // When the user scrolls the foreground 'child', the engine simply composites this texture
+          // rather than recalculating the gradient intersections every single frame.
+          RepaintBoundary(
+            child: Stack(
+              children: [
+                Container(decoration: BoxDecoration(gradient: ext.bgGradient)),
+                Positioned(
+                  top: -150,
+                  left: -150,
+                  width: 500,
+                  height: 500,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: ext.meshAmber,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: -100,
+                  right: -100,
+                  width: 400,
+                  height: 400,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: ext.meshIndigo,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 200,
+                  right: -50,
+                  width: 350,
+                  height: 350,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: ext.meshViolet,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           child,
@@ -414,10 +421,8 @@ class _PrimaryButtonState extends State<PrimaryButton>
             }
           : null,
       onTapCancel: _isActive ? () => _press.reverse() : null,
-      child: AnimatedBuilder(
-        animation: _scale,
-        builder: (_, child) =>
-            Transform.scale(scale: _scale.value, child: child),
+      child: ScaleTransition(
+        scale: _scale,
         child: AnimatedOpacity(
           opacity: _isActive ? 1.0 : 0.55,
           duration: AppTheme.tFast,
@@ -917,26 +922,23 @@ class _PulsingDotState extends State<PulsingDot>
         widget.color ??
         Theme.of(context).extension<AppColorsExtension>()!.success;
 
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) => Transform.scale(
-        scale: _scale.value,
-        child: Opacity(
-          opacity: _opacity.value,
-          child: Container(
-            width: widget.size,
-            height: widget.size,
-            decoration: BoxDecoration(
-              color: activeColor,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: activeColor.withOpacity(0.4),
-                  blurRadius: 6,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
+    return ScaleTransition(
+      scale: _scale,
+      child: FadeTransition(
+        opacity: _opacity,
+        child: Container(
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(
+            color: activeColor,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: activeColor.withOpacity(0.4),
+                blurRadius: 6,
+                spreadRadius: 1,
+              ),
+            ],
           ),
         ),
       ),

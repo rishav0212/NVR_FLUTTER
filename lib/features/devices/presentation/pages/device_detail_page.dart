@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons/lucide_icons.dart';
-import '../../../../core/constants/app_constants.dart';
+
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/app_haptics.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
+import '../bloc/device_bloc.dart';
 
 /// Phase 2 — Step 2 placeholder for the device detail / live view screen.
 ///
@@ -16,126 +17,171 @@ import '../../../../shared/widgets/shared_widgets.dart';
 ///
 /// Back navigation uses context.go('/home') to clear the device stack entirely
 /// (this page is always reached via context.go, not context.push).
+
 class DeviceDetailPage extends StatelessWidget {
   final String deviceId;
   const DeviceDetailPage({super.key, required this.deviceId});
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () {
-            AppHaptics.light();
-            context.go(AppConstants.homeRoute);
-          },
+  void _confirmDelete(BuildContext context) {
+    AppHaptics.medium();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.rLg),
         ),
-        title: const Text('Device'),
-      ),
-      body: PageBackground(
-        child: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(AppTheme.s40),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // ── Placeholder icon ─────────────────────────────────
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: AppTheme.amberIconBox(
-                      context,
-                      radius: AppTheme.rXl,
-                    ),
-                    child: const Icon(
-                      LucideIcons.videoOff,
-                      color: AppTheme.amber,
-                      size: 32,
-                    ),
-                  ),
-                  const SizedBox(height: AppTheme.s24),
-
-                  // ── Title ────────────────────────────────────────────
-                  Text(
-                    'Camera Dashboard',
-                    style: theme.textTheme.headlineLarge,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: AppTheme.s8),
-
-                  // ── Device ID indicator ───────────────────────────────
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppTheme.s12,
-                      vertical: AppTheme.s6,
-                    ),
-                    decoration: AppTheme.glassCard(
-                      context,
-                      radius: AppTheme.rSm,
-                    ),
-                    child: Text(
-                      'Device: ${deviceId.substring(0, 8).toUpperCase()}…',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontFamily: 'monospace',
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppTheme.s16),
-
-                  // ── Description ───────────────────────────────────────
-                  Text(
-                    'Live WebRTC stream and camera management\ncoming in Phase 2 Step 2.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: AppTheme.s32),
-
-                  // ── Phase badge ───────────────────────────────────────
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppTheme.s16,
-                      vertical: AppTheme.s8,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: theme
-                          .extension<AppColorsExtension>()!
-                          .amberTint,
-                      borderRadius: BorderRadius.circular(AppTheme.rFull),
-                      border: Border.all(
-                        color: AppTheme.amber.withOpacity(0.2),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.construction_rounded,
-                          size: 13,
-                          color: AppTheme.amber,
-                        ),
-                        const SizedBox(width: AppTheme.s6),
-                        Text(
-                          'Phase 2 Step 2 — In development',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppTheme.amber,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+        title: Text(
+          'Delete Device',
+          style: Theme.of(context).textTheme.displaySmall,
+        ),
+        content: Text(
+          'Are you sure you want to remove this NVR? You will lose access to all connected cameras.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
-        ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              // Trigger the delete event!
+              context.read<DeviceBloc>().add(DeleteDevice(deviceId));
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: AppTheme.error),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<DeviceBloc, DeviceState>(
+      listener: (context, state) {
+        if (state is DeviceError) {
+          AppHaptics.error();
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
+        } else if (state is DevicesLoaded) {
+          // After a successful delete, our BLoC automatically fires LoadMyDevices
+          // So if we hit DevicesLoaded here, it means the delete finished perfectly!
+          AppHaptics.success();
+          context.pop(); // Pop back to dashboard
+        }
+      },
+      builder: (context, state) {
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          extendBodyBehindAppBar: true,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              onPressed: () => context.pop(),
+            ),
+            actions: [
+              if (state is DeviceOperationLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20.0),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.error,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                IconButton(
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppTheme.error,
+                  ),
+                  onPressed: () => _confirmDelete(context),
+                  tooltip: 'Delete Device',
+                ),
+            ],
+          ),
+          body: PageBackground(
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.s24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: AppTheme.s48),
+                    AnimatedEntrance(
+                      delay: Duration.zero,
+                      child: Container(
+                        width: 52,
+                        height: 52,
+                        decoration: AppTheme.amberIconBox(context),
+                        child: const Icon(
+                          Icons.videocam_rounded,
+                          color: AppTheme.amber,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.s24),
+                    AnimatedEntrance(
+                      delay: const Duration(milliseconds: 80),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Device Dashboard',
+                            style: Theme.of(context).textTheme.displaySmall,
+                          ),
+                          const SizedBox(height: AppTheme.s6),
+                          Text(
+                            'ID: $deviceId',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(fontFamily: 'monospace'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    AnimatedEntrance(
+                      delay: const Duration(milliseconds: 160),
+                      child: Center(
+                        child: Text(
+                          'Camera playback and WebRTC implementation\ncoming in Phase 2 Step 2.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

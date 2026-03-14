@@ -1,8 +1,11 @@
+// ═════════════════════════════════════════════════════════════════════════════
+// FILE: lib/core/router/app_router.dart
+// ═════════════════════════════════════════════════════════════════════════════
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../features/devices/presentation/pages/device_detail_page.dart';
-import '../../features/devices/presentation/pages/device_dashboard_page.dart'; // Add this
+import '../../features/devices/presentation/pages/device_dashboard_page.dart';
 import 'package:go_router/go_router.dart';
 import '../constants/app_constants.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
@@ -42,8 +45,6 @@ class AppRouter {
 
       if (authState is AuthInitial) return AppConstants.splashRoute;
 
-      // ✅ FIXED: AuthError removed — errors don't mean unauthenticated.
-      // Pages handle AuthError display themselves via BlocBuilder/ErrorBanner.
       if (authState is AuthUnauthenticated || authState is AuthActionSuccess) {
         if (isAuthScreen) return null;
         return AppConstants.loginRoute;
@@ -144,17 +145,6 @@ class AppRouter {
         ),
       ),
 
-      GoRoute(
-        path: '/devices/:id',
-        pageBuilder: (context, state) => _buildPage(
-          state,
-          BlocProvider( // <--- Wrap in BlocProvider
-            create: (_) => getIt<DeviceBloc>(),
-            child: DeviceDetailPage(deviceId: state.pathParameters['id']!),
-          ),
-        ),
-      ),
-
       // ── Device detail route ──────────────────────────────────────────────
       //
       // Reached via context.go('/devices/$id') from credentials or pin pages.
@@ -164,7 +154,11 @@ class AppRouter {
         path: '/devices/:id',
         pageBuilder: (context, state) => _buildPage(
           state,
-          DeviceDetailPage(deviceId: state.pathParameters['id']!),
+          BlocProvider(
+            // <--- Wrap in BlocProvider
+            create: (_) => getIt<DeviceBloc>(),
+            child: DeviceDetailPage(deviceId: state.pathParameters['id']!),
+          ),
         ),
       ),
     ],
@@ -216,10 +210,21 @@ class AppRouter {
 //
 class _GoRouterRefreshStream extends ChangeNotifier {
   late final StreamSubscription<dynamic> _subscription;
+  Type? _lastStateType;
 
   _GoRouterRefreshStream(Stream<dynamic> stream) {
     notifyListeners();
-    _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
+    // Filters the continuous stream of authentication events down to only structural state changes.
+    // GoRouter completely reconstructs the navigation tree and evaluates redirects whenever
+    // notifyListeners is called. By caching the runtime type, we prevent the router from
+    // halting the UI thread to rebuild during transient states (like loading spinners or minor errors),
+    // guaranteeing butter-smooth route transitions.
+    _subscription = stream.asBroadcastStream().listen((state) {
+      if (_lastStateType != state.runtimeType) {
+        _lastStateType = state.runtimeType;
+        notifyListeners();
+      }
+    });
   }
 
   @override
