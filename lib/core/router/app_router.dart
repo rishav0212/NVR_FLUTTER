@@ -21,7 +21,8 @@ import '../../features/devices/presentation/pages/add_device_page.dart';
 import '../../features/devices/presentation/pages/register_device_page.dart';
 import '../../features/devices/presentation/pages/pin_entry_page.dart';
 import '../../features/devices/presentation/pages/credentials_page.dart';
-
+import '../../features/stream/presentation/pages/live_view_page.dart';
+import '../../features/stream/presentation/bloc/stream_bloc.dart';
 import '../../injection_container.dart';
 
 class AppRouter {
@@ -124,7 +125,7 @@ class AppRouter {
       GoRoute(
         path: AppConstants.pinEntryRoute,
         pageBuilder: (context, state) {
-          final data = state.extra as Map<String, String>;
+          final data = state.extra as Map<String, dynamic>;
           return _buildPage(
             state,
             BlocProvider(
@@ -160,6 +161,23 @@ class AppRouter {
             child: DeviceDetailPage(deviceId: state.pathParameters['id']!),
           ),
         ),
+      ),
+      GoRoute(
+        path: '/devices/:id/channels/:channelId/live',
+        pageBuilder: (context, state) {
+          final data = state.extra as Map<String, dynamic>? ?? {};
+          return _buildPage(
+            state,
+            BlocProvider(
+              create: (_) => getIt<StreamBloc>(),
+              child: LiveViewPage(
+                deviceId: state.pathParameters['id']!,
+                channelId: state.pathParameters['channelId']!,
+                channelName: data['channelName'] ?? 'Camera',
+              ),
+            ),
+          );
+        },
       ),
     ],
   );

@@ -7,20 +7,21 @@ import '../../../../core/utils/app_haptics.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../bloc/device_bloc.dart';
 
-/// Phase 2 — Step 2 placeholder for the device detail / live view screen.
-///
-/// Currently displays a holding state with device ID and a "coming soon" message.
-/// Will be replaced with:
-///   • Camera grid / live WebRTC stream (Phase 2 Step 2)
-///   • Device settings and member management
-///   • Playback controls
-///
-/// Back navigation uses context.go('/home') to clear the device stack entirely
-/// (this page is always reached via context.go, not context.push).
-
-class DeviceDetailPage extends StatelessWidget {
+class DeviceDetailPage extends StatefulWidget {
   final String deviceId;
   const DeviceDetailPage({super.key, required this.deviceId});
+
+  @override
+  State<DeviceDetailPage> createState() => _DeviceDetailPageState();
+}
+
+class _DeviceDetailPageState extends State<DeviceDetailPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Fetch channels as soon as the page opens!
+    context.read<DeviceBloc>().add(LoadDeviceChannels(widget.deviceId));
+  }
 
   void _confirmDelete(BuildContext context) {
     AppHaptics.medium();
@@ -52,8 +53,7 @@ class DeviceDetailPage extends StatelessWidget {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              // Trigger the delete event!
-              context.read<DeviceBloc>().add(DeleteDevice(deviceId));
+              context.read<DeviceBloc>().add(DeleteDevice(widget.deviceId));
             },
             child: const Text(
               'Delete',
@@ -67,121 +67,158 @@ class DeviceDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<DeviceBloc, DeviceState>(
-      listener: (context, state) {
-        if (state is DeviceError) {
-          AppHaptics.error();
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.message)));
-        } else if (state is DevicesLoaded) {
-          // After a successful delete, our BLoC automatically fires LoadMyDevices
-          // So if we hit DevicesLoaded here, it means the delete finished perfectly!
-          AppHaptics.success();
-          context.pop(); // Pop back to dashboard
-        }
-      },
-      builder: (context, state) {
-        return Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          extendBodyBehindAppBar: true,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_rounded),
-              onPressed: () => context.pop(),
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => context.pop(),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              color: AppTheme.error,
             ),
-            actions: [
-              if (state is DeviceOperationLoading)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20.0),
-                  child: Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppTheme.error,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                IconButton(
-                  icon: const Icon(
-                    Icons.delete_outline_rounded,
-                    color: AppTheme.error,
-                  ),
-                  onPressed: () => _confirmDelete(context),
-                  tooltip: 'Delete Device',
-                ),
-            ],
+            onPressed: () => _confirmDelete(context),
+            tooltip: 'Delete Device',
           ),
-          body: PageBackground(
-            child: SafeArea(
-              child: Padding(
+        ],
+      ),
+      body: PageBackground(
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: AppTheme.s24),
+              Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppTheme.s24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: AppTheme.s48),
-                    AnimatedEntrance(
-                      delay: Duration.zero,
-                      child: Container(
-                        width: 52,
-                        height: 52,
-                        decoration: AppTheme.amberIconBox(context),
-                        child: const Icon(
-                          Icons.videocam_rounded,
-                          color: AppTheme.amber,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.s24),
-                    AnimatedEntrance(
-                      delay: const Duration(milliseconds: 80),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Device Dashboard',
-                            style: Theme.of(context).textTheme.displaySmall,
-                          ),
-                          const SizedBox(height: AppTheme.s6),
-                          Text(
-                            'ID: $deviceId',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(fontFamily: 'monospace'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    AnimatedEntrance(
-                      delay: const Duration(milliseconds: 160),
-                      child: Center(
-                        child: Text(
-                          'Camera playback and WebRTC implementation\ncoming in Phase 2 Step 2.',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                  ],
+                child: Text(
+                  'Cameras',
+                  style: Theme.of(context).textTheme.displaySmall,
                 ),
               ),
-            ),
+              const SizedBox(height: AppTheme.s16),
+
+              // Dynamic Channel List replacing the "coming soon" text
+              Expanded(
+                child: BlocConsumer<DeviceBloc, DeviceState>(
+                  listener: (context, state) {
+                    if (state is DeviceError) {
+                      AppHaptics.error();
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(state.message)));
+                    } else if (state is DevicesLoaded) {
+                      AppHaptics.success();
+                      context.pop();
+                    }
+                  },
+                  builder: (context, state) {
+                    if (state is DeviceOperationLoading ||
+                        state is DeviceInitial) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: AppTheme.amber),
+                      );
+                    }
+
+                    if (state is DeviceChannelsLoaded) {
+                      if (state.channels.isEmpty) {
+                        return Center(
+                          child: Text(
+                            "No cameras found.\nEnsure your NVR is online.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        );
+                      }
+
+                      return ListView.separated(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.s24,
+                        ),
+                        itemCount: state.channels.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: AppTheme.s12),
+                        itemBuilder: (context, index) {
+                          final channel = state.channels[index];
+                          final isOnline = channel['status'] == 'ONLINE';
+
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            tileColor: Theme.of(context).colorScheme.surface,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppTheme.rMd),
+                            ),
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: isOnline
+                                    ? Colors.green.withOpacity(0.1)
+                                    : Colors.red.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.videocam,
+                                color: isOnline ? Colors.green : Colors.red,
+                              ),
+                            ),
+                            title: Text(
+                              channel['name'],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Text(
+                              isOnline ? 'Online' : 'Offline',
+                              style: TextStyle(
+                                color: isOnline ? Colors.green : Colors.red,
+                                fontSize: 12,
+                              ),
+                            ),
+                            trailing: const Icon(
+                              Icons.chevron_right,
+                              color: Colors.grey,
+                            ),
+                            onTap: () {
+                              if (isOnline) {
+                                AppHaptics.light();
+                                // Navigate to the Live View Page!
+                                context.push(
+                                  '/devices/${widget.deviceId}/channels/${channel['channelId']}/live',
+                                  extra: {'channelName': channel['name']},
+                                );
+                              } else {
+                                AppHaptics.error();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Camera is offline"),
+                                  ),
+                                );
+                              }
+                            },
+                          );
+                        },
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

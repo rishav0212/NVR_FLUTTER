@@ -67,6 +67,27 @@ class DeviceRepository {
     }
   }
 
+  Future<void> deleteDevice(String deviceId) async {
+    try {
+      await _apiClient.dio.delete('${AppConstants.devicesEndpoint}/$deviceId');
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  // --- ADDED IN PHASE 3 ---
+  // Fetches the channels available on a specific NVR device.
+  // Added try/catch block to ensure consistent error parsing via _handleError.
+  // Changed _apiClient.get to _apiClient.dio.get to access the underlying Dio instance.
+  Future<List<Map<String, dynamic>>> getDeviceChannels(String deviceId) async {
+    try {
+      final response = await _apiClient.dio.get('/api/devices/$deviceId/channels');
+      return List<Map<String, dynamic>>.from(response.data['data']);
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   // ONLY ONE _handleError METHOD NOW!
   DeviceException _handleError(DioException e) {
     int? attempts;
@@ -97,13 +118,5 @@ class DeviceRepository {
       attemptsRemaining: attempts,
       lockedUntil: lockedTime,
     );
-  }
-
-  Future<void> deleteDevice(String deviceId) async {
-    try {
-      await _apiClient.dio.delete('${AppConstants.devicesEndpoint}/$deviceId');
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
   }
 }

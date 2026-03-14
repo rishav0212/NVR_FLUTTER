@@ -6,7 +6,8 @@ import 'features/auth/data/repositories/auth_repository.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/devices/data/repositories/device_repository.dart';
 import 'features/devices/presentation/bloc/device_bloc.dart';
-
+import 'features/stream/data/repositories/stream_repository.dart';
+import 'features/stream/presentation/bloc/stream_bloc.dart';
 final getIt = GetIt.instance;
 
 Future<void> initDi() async {
@@ -40,5 +41,12 @@ Future<void> initDi() async {
   // --- DEVICES ---
   getIt.registerLazySingleton(() => DeviceRepository(getIt<ApiClient>()));
   // Factory ensures a fresh instance per screen for the wizard!
+ 
   getIt.registerFactory(() => DeviceBloc(getIt<DeviceRepository>()));
+
+
+  // --- STREAMING ---
+getIt.registerLazySingleton(() => StreamRepository(getIt<ApiClient>()));
+getIt.registerFactory(() => StreamBloc(getIt<StreamRepository>()));
+
 }

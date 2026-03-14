@@ -47,6 +47,13 @@ class DeleteDevice extends DeviceEvent {
   List<Object?> get props => [deviceId];
 }
 
+class LoadDeviceChannels extends DeviceEvent {
+  final String deviceId;
+  const LoadDeviceChannels(this.deviceId);
+  @override
+  List<Object?> get props => [deviceId];
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // STATES
 // ═════════════════════════════════════════════════════════════════════════════
@@ -103,6 +110,13 @@ class DeviceError extends DeviceState {
   List<Object?> get props => [message, attemptsRemaining];
 }
 
+class DeviceChannelsLoaded extends DeviceState {
+  final List<Map<String, dynamic>> channels;
+  const DeviceChannelsLoaded(this.channels);
+  @override
+  List<Object?> get props => [channels];
+}
+
 // THE MISSING STATE FOR THE LOCKOUT TIMER!
 class DevicePinLocked extends DeviceState {
   final DateTime lockedUntil;
@@ -124,6 +138,7 @@ class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
     on<LoadMyDevices>(_onLoadMyDevices);
     on<RefreshDevices>(_onRefreshDevices);
     on<DeleteDevice>(_onDeleteDevice);
+    on<LoadDeviceChannels>(_onLoadChannels);
   }
 
   Future<void> _onCheckDevice(
@@ -252,6 +267,21 @@ class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
       add(LoadMyDevices()); // Reload the list after deletion
     } on DeviceException catch (e) {
       emit(DeviceError(message: e.message));
+    }
+  }
+
+  Future<void> _onLoadChannels(
+    LoadDeviceChannels event,
+    Emitter<DeviceState> emit,
+  ) async {
+    emit(DeviceOperationLoading());
+    try {
+      final channels = await _repo.getDeviceChannels(event.deviceId);
+      emit(DeviceChannelsLoaded(channels));
+    } on DeviceException catch (e) {
+      emit(DeviceError(message: e.message));
+    } catch (_) {
+      emit(const DeviceError(message: 'Failed to load channels.'));
     }
   }
 }

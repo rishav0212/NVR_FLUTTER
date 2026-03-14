@@ -174,3 +174,31 @@ class DeviceCredentials extends Equatable {
     sipServerPort,
   ];
 }
+
+class NvrChannel extends Equatable {
+  final String channelId;
+  final String name;
+  final String status;
+  final bool hasPtz;
+
+  const NvrChannel({
+    required this.channelId,
+    required this.name,
+    required this.status,
+    required this.hasPtz,
+  });
+
+  bool get isOnline => status == 'ONLINE';
+
+  factory NvrChannel.fromJson(Map<String, dynamic> json) {
+    return NvrChannel(
+      channelId: json['channelId'] as String? ?? '',
+      name: json['name'] as String? ?? 'Unknown Camera',
+      status: json['status'] as String? ?? 'OFFLINE',
+      hasPtz: json['hasPtz'] as bool? ?? false,
+    );
+  }
+
+  @override
+  List<Object?> get props => [channelId, name, status, hasPtz];
+}
