@@ -37,9 +37,8 @@ class LinkDevice extends DeviceEvent {
 
 class LoadMyDevices extends DeviceEvent {}
 
-class RefreshDevices extends DeviceEvent {} // Triggered by Pull-to-Refresh
+class RefreshDevices extends DeviceEvent {}
 
-// Added Delete Event
 class DeleteDevice extends DeviceEvent {
   final String deviceId;
   const DeleteDevice(this.deviceId);
@@ -47,11 +46,19 @@ class DeleteDevice extends DeviceEvent {
   List<Object?> get props => [deviceId];
 }
 
+/// Loads camera channels for a specific device.
+/// Uses an in-memory cache: if channels for this deviceId are already loaded,
+/// the event is ignored and the existing [DeviceChannelsLoaded] state is kept.
 class LoadDeviceChannels extends DeviceEvent {
   final String deviceId;
-  const LoadDeviceChannels(this.deviceId);
+
+  /// Set to true to force a fresh fetch even if channels are cached.
+  final bool forceRefresh;
+
+  const LoadDeviceChannels(this.deviceId, {this.forceRefresh = false});
+
   @override
-  List<Object?> get props => [deviceId];
+  List<Object?> get props => [deviceId, forceRefresh];
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -92,13 +99,27 @@ class DeviceLinked extends DeviceState {
   const DeviceLinked(this.device);
 }
 
-// Dashboard States
+// Dashboard State
 class DevicesLoaded extends DeviceState {
   final List<NvrDevice> devices;
   final bool isRefreshing;
   const DevicesLoaded({required this.devices, this.isRefreshing = false});
   @override
   List<Object?> get props => [devices, isRefreshing];
+}
+
+/// Emitted after a successful channel fetch.
+///
+/// Carries [deviceId] as a cache key so the bloc handler knows whether to
+/// skip the next [LoadDeviceChannels] for the same device.
+class DeviceChannelsLoaded extends DeviceState {
+  final List<NvrChannel> channels;
+  final String deviceId;
+
+  const DeviceChannelsLoaded({required this.channels, required this.deviceId});
+
+  @override
+  List<Object?> get props => [channels, deviceId];
 }
 
 // Error & Lockout States
@@ -110,14 +131,6 @@ class DeviceError extends DeviceState {
   List<Object?> get props => [message, attemptsRemaining];
 }
 
-class DeviceChannelsLoaded extends DeviceState {
-  final List<Map<String, dynamic>> channels;
-  const DeviceChannelsLoaded(this.channels);
-  @override
-  List<Object?> get props => [channels];
-}
-
-// THE MISSING STATE FOR THE LOCKOUT TIMER!
 class DevicePinLocked extends DeviceState {
   final DateTime lockedUntil;
   const DevicePinLocked(this.lockedUntil);
@@ -126,7 +139,7 @@ class DevicePinLocked extends DeviceState {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// BLOC IMPLEMENTATION
+// BLOC
 // ═════════════════════════════════════════════════════════════════════════════
 class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
   final DeviceRepository _repo;
@@ -138,7 +151,7 @@ class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
     on<LoadMyDevices>(_onLoadMyDevices);
     on<RefreshDevices>(_onRefreshDevices);
     on<DeleteDevice>(_onDeleteDevice);
-    on<LoadDeviceChannels>(_onLoadChannels);
+    on<LoadDeviceChannels>(_onLoadDeviceChannels);
   }
 
   Future<void> _onCheckDevice(
@@ -206,7 +219,6 @@ class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
       );
       emit(DeviceLinked(device));
     } on DeviceException catch (e) {
-      // If the backend sent a lockedUntil timestamp, trigger the timer UI!
       if (e.lockedUntil != null) {
         emit(DevicePinLocked(e.lockedUntil!));
       } else {
@@ -238,10 +250,13 @@ class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
     Emitter<DeviceState> emit,
   ) async {
     if (state is DevicesLoaded) {
-      final currentState = state as DevicesLoaded;
-      emit(DevicesLoaded(devices: currentState.devices, isRefreshing: true));
+      emit(
+        DevicesLoaded(
+          devices: (state as DevicesLoaded).devices,
+          isRefreshing: true,
+        ),
+      );
     }
-
     try {
       final devices = await _repo.getMyDevices();
       emit(DevicesLoaded(devices: devices, isRefreshing: false));
@@ -264,24 +279,40 @@ class DeviceBloc extends Bloc<DeviceEvent, DeviceState> {
     emit(DeviceOperationLoading());
     try {
       await _repo.deleteDevice(event.deviceId);
-      add(LoadMyDevices()); // Reload the list after deletion
+      add(LoadMyDevices());
     } on DeviceException catch (e) {
       emit(DeviceError(message: e.message));
     }
   }
 
-  Future<void> _onLoadChannels(
+  /// Loads channels for the given device.
+  ///
+  /// Cache hit: if the current state is already [DeviceChannelsLoaded] for the
+  /// same [deviceId] and [forceRefresh] is false, the event is a no-op.
+  /// This prevents redundant network calls when the user navigates back to the
+  /// device detail page.
+  Future<void> _onLoadDeviceChannels(
     LoadDeviceChannels event,
     Emitter<DeviceState> emit,
   ) async {
+    // Cache check — skip if already loaded for the same device
+    if (!event.forceRefresh && state is DeviceChannelsLoaded) {
+      final cached = state as DeviceChannelsLoaded;
+      if (cached.deviceId == event.deviceId) return;
+    }
+
     emit(DeviceOperationLoading());
     try {
       final channels = await _repo.getDeviceChannels(event.deviceId);
-      emit(DeviceChannelsLoaded(channels));
+      emit(DeviceChannelsLoaded(channels: channels, deviceId: event.deviceId));
     } on DeviceException catch (e) {
       emit(DeviceError(message: e.message));
     } catch (_) {
-      emit(const DeviceError(message: 'Failed to load channels.'));
+      emit(
+        const DeviceError(
+          message: 'Failed to load channels. Please try again.',
+        ),
+      );
     }
   }
 }

@@ -79,10 +79,15 @@ class DeviceRepository {
   // Fetches the channels available on a specific NVR device.
   // Added try/catch block to ensure consistent error parsing via _handleError.
   // Changed _apiClient.get to _apiClient.dio.get to access the underlying Dio instance.
-  Future<List<Map<String, dynamic>>> getDeviceChannels(String deviceId) async {
+  Future<List<NvrChannel>> getDeviceChannels(String deviceId) async {
     try {
-      final response = await _apiClient.dio.get('/api/devices/$deviceId/channels');
-      return List<Map<String, dynamic>>.from(response.data['data']);
+      final response = await _apiClient.dio.get(
+        '${AppConstants.devicesEndpoint}/$deviceId/channels',
+      );
+      final list = response.data['data'] as List<dynamic>;
+      return list
+          .map((json) => NvrChannel.fromJson(json as Map<String, dynamic>))
+          .toList();
     } on DioException catch (e) {
       throw _handleError(e);
     }

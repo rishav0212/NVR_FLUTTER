@@ -8,6 +8,10 @@ import '../../../../core/utils/app_haptics.dart';
 import '../../../../shared/widgets/shared_widgets.dart';
 import '../bloc/device_bloc.dart';
 
+// IMPORTANT: Ensure you have created this widget file from the previous step.
+// It contains the actual mobile_scanner camera overlay logic.
+import '../widgets/qr_scanner_sheet.dart';
+
 class AddDevicePage extends StatefulWidget {
   const AddDevicePage({super.key});
 
@@ -23,6 +27,30 @@ class _AddDevicePageState extends State<AddDevicePage> {
   void dispose() {
     _idController.dispose();
     super.dispose();
+  }
+
+  // --- ADDED: Scanner Invocation Method ---
+  // What we are doing: We open a bottom sheet containing the camera scanner.
+  // Why: To keep the user in the context of the "Add Device" screen without
+  // navigating entirely away. Awaiting the result allows us to instantly
+  // update the text controller when a QR code is detected.
+  Future<void> _openScanner() async {
+    AppHaptics.light(); // Provide feedback that the scanner is opening
+
+    final String? scannedCode = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const QrScannerSheet(),
+    );
+
+    // If the user scanned a code successfully, auto-fill the field
+    if (scannedCode != null && mounted) {
+      AppHaptics.success();
+      setState(() {
+        _idController.text = scannedCode;
+      });
+    }
   }
 
   void _submit() {
@@ -88,14 +116,20 @@ class _AddDevicePageState extends State<AddDevicePage> {
                     // Exactly matches Phase 1 Auth Pattern
                     AnimatedEntrance(
                       delay: Duration.zero,
-                      child: Container(
-                        width: 52,
-                        height: 52,
-                        decoration: AppTheme.amberIconBox(context),
-                        child: const Icon(
-                          Icons.qr_code_scanner_rounded,
-                          color: AppTheme.amber,
-                          size: 24,
+                      // --- ADDED: GestureDetector ---
+                      // We wrapped the decorative icon box with a tap detector
+                      // so users can tap the big QR icon to open the camera.
+                      child: GestureDetector(
+                        onTap: _openScanner,
+                        child: Container(
+                          width: 52,
+                          height: 52,
+                          decoration: AppTheme.amberIconBox(context),
+                          child: const Icon(
+                            Icons.qr_code_scanner_rounded,
+                            color: AppTheme.amber,
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),
@@ -110,8 +144,9 @@ class _AddDevicePageState extends State<AddDevicePage> {
                             style: Theme.of(context).textTheme.displaySmall,
                           ),
                           const SizedBox(height: AppTheme.s6),
+                          // --- UPDATED: Text to reflect the new functionality ---
                           Text(
-                            'Enter the Serial Number or MAC address printed on your NVR.',
+                            'Enter the Serial Number or scan the QR code printed on your NVR.',
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ],
@@ -126,6 +161,19 @@ class _AddDevicePageState extends State<AddDevicePage> {
                           controller: _idController,
                           label: 'Device Identifier',
                           prefixIcon: Icons.document_scanner_outlined,
+                          // --- ADDED: suffixWidget ---
+                          // Adding a smaller scan button directly inside the text input
+                          // which is standard UX for scannable fields.
+                          suffixWidget: IconButton(
+                            icon: const Icon(
+                              Icons.qr_code_scanner_rounded,
+                              size: 20,
+                            ),
+                            onPressed: _openScanner,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
                           textInputAction: TextInputAction.done,
                           onSubmitted: (_) => _submit(),
                         ),

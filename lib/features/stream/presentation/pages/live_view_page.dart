@@ -42,6 +42,8 @@ class _LiveViewPageState extends State<LiveViewPage> {
   Future<void> _startWebRtcNegotiation() async {
     // Configuration forces standard WebRTC behavior
     final configuration = {
+      'sdpSemantics':
+          'unified-plan', // Modern standard for better track handling
       'iceServers': [
         {'urls': 'stun:stun.l.google.com:19302'},
       ],
@@ -49,9 +51,15 @@ class _LiveViewPageState extends State<LiveViewPage> {
 
     _peerConnection = await createPeerConnection(configuration);
 
-    // We only want to RECEIVE video, not send our phone's camera back to the server
+    // We only want to RECEIVE video and audio
     _peerConnection!.addTransceiver(
       kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
+      init: RTCRtpTransceiverInit(direction: TransceiverDirection.RecvOnly),
+    );
+
+    // Adding audio transceiver helps with some NVR negotiation logic
+    _peerConnection!.addTransceiver(
+      kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
       init: RTCRtpTransceiverInit(direction: TransceiverDirection.RecvOnly),
     );
 
@@ -64,9 +72,30 @@ class _LiveViewPageState extends State<LiveViewPage> {
       }
     };
 
-    // Gather local WebRTC info to send to MediaMTX
+    // Gather local WebRTC info
     RTCSessionDescription offer = await _peerConnection!.createOffer();
     await _peerConnection!.setLocalDescription(offer);
+
+    // --- CRITICAL FIX: WAIT FOR ICE GATHERING ---
+    // This ensures your phone's network address is included in the SDP, fixing the black screen.
+    if (_peerConnection!.iceGatheringState !=
+        RTCIceGatheringState.RTCIceGatheringStateComplete) {
+      final completer = Completer<void>();
+      _peerConnection!.onIceGatheringState = (state) {
+        if (state == RTCIceGatheringState.RTCIceGatheringStateComplete &&
+            !completer.isCompleted) {
+          completer.complete();
+        }
+      };
+      // Wait up to 1 second for gathering to complete
+      await completer.future.timeout(
+        const Duration(milliseconds: 1000),
+        onTimeout: () {},
+      );
+    }
+
+    // Get the updated description containing the ICE candidates
+    final finalOffer = await _peerConnection!.getLocalDescription();
 
     // Dispatch to BLoC to send to Spring Boot
     if (mounted) {
@@ -75,7 +104,7 @@ class _LiveViewPageState extends State<LiveViewPage> {
           deviceId: widget.deviceId,
           channelId: widget.channelId,
           streamType: _streamType,
-          sdpOffer: offer.sdp ?? '',
+          sdpOffer: finalOffer?.sdp ?? offer.sdp ?? '',
         ),
       );
     }
@@ -125,7 +154,6 @@ class _LiveViewPageState extends State<LiveViewPage> {
           // MAIN/SUB Stream Toggle
           TextButton(
             onPressed: () {
-              // ---> ADDED OPTIMIZATION HERE <---
               // Kill the old server session BEFORE starting the new one
               if (_activeSessionId != null) {
                 context.read<StreamBloc>().add(
@@ -135,6 +163,7 @@ class _LiveViewPageState extends State<LiveViewPage> {
               }
 
               setState(() {
+                _localRenderer.srcObject = null; // Clear view during transition
                 _streamType = _streamType == 'MAIN' ? 'SUB' : 'MAIN';
               });
 
