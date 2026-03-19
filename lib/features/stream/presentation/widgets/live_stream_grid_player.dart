@@ -33,6 +33,8 @@ class LiveStreamGridPlayer extends StatefulWidget {
   /// Global mute state from the dashboard.
   final bool isMuted;
 
+  final int gridIndex;
+
   final VoidCallback onFullScreenTap;
 
   const LiveStreamGridPlayer({
@@ -42,6 +44,7 @@ class LiveStreamGridPlayer extends StatefulWidget {
     required this.channelName,
     required this.isActive,
     required this.isMuted,
+    required this.gridIndex,
     required this.onFullScreenTap,
   }) : super(key: key);
 
@@ -55,6 +58,9 @@ class _LiveStreamGridPlayerState extends State<LiveStreamGridPlayer> {
   Timer? _heartbeat;
   String? _sessionId;
   bool _rendererReady = false;
+
+  // Prevents multiple negotiation loops from starting simultaneously
+  bool _negotiationInProgress = false;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -105,69 +111,95 @@ class _LiveStreamGridPlayerState extends State<LiveStreamGridPlayer> {
   // ── Stream Negotiation ────────────────────────────────────────────────────
 
   Future<void> _startNegotiation() async {
-    if (!_rendererReady || !mounted) return;
+    // If already negotiating, abort to prevent overlap
+    if (!_rendererReady || !mounted || _negotiationInProgress) return;
 
-    // Safety: clean up any previous connection first
-    await _closePeerConnection();
+    _negotiationInProgress = true;
 
-    final config = {
-      'sdpSemantics': 'unified-plan',
-      'iceServers': [
-        {'urls': 'stun:stun.l.google.com:19302'},
-      ],
-    };
+    // --- HARDWARE DECODER SATURATION FIX (Staggered Start) ---
+    // Stagger stream starts by 300ms multiplied by their grid index.
+    // Tile 0 starts instantly. Tile 1 waits 300ms. Tile 2 waits 600ms.
+    // Why: Mobile hardware H.264 decoders crash if asked to open 4+ video
+    // streams at the exact same millisecond. Staggering allows the processor
+    // to allocate memory for each video sequentially without freezing.
+    if (widget.gridIndex > 0) {
+      await Future.delayed(Duration(milliseconds: widget.gridIndex * 300));
 
-    _pc = await createPeerConnection(config);
-
-    // Receive-only transceivers (we never send from the app)
-    await _pc!.addTransceiver(
-      kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
-      init: RTCRtpTransceiverInit(direction: TransceiverDirection.RecvOnly),
-    );
-    await _pc!.addTransceiver(
-      kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
-      init: RTCRtpTransceiverInit(direction: TransceiverDirection.RecvOnly),
-    );
-
-    _pc!.onTrack = (RTCTrackEvent event) {
-      if (event.streams.isNotEmpty && mounted) {
-        setState(() => _renderer.srcObject = event.streams[0]);
-        _applyMute(widget.isMuted);
+      // If the user swiped away to another page during the delay,
+      // abort the connection to save data and battery!
+      if (!mounted || !widget.isActive) {
+        _negotiationInProgress = false;
+        return;
       }
-    };
-
-    // Create offer
-    final offer = await _pc!.createOffer();
-    await _pc!.setLocalDescription(offer);
-
-    // Wait for ICE gathering to complete (max 1.5s)
-    if (_pc!.iceGatheringState !=
-        RTCIceGatheringState.RTCIceGatheringStateComplete) {
-      final done = Completer<void>();
-      _pc!.onIceGatheringState = (state) {
-        if (state == RTCIceGatheringState.RTCIceGatheringStateComplete &&
-            !done.isCompleted) {
-          done.complete();
-        }
-      };
-      await done.future.timeout(
-        const Duration(milliseconds: 1500),
-        onTimeout: () {},
-      );
     }
 
-    final finalDesc = await _pc!.getLocalDescription();
-    final sdpOffer = finalDesc?.sdp ?? offer.sdp ?? '';
+    try {
+      // Safety: clean up any previous connection first
+      await _closePeerConnection();
 
-    if (mounted) {
-      context.read<StreamBloc>().add(
-        StartStreamEvent(
-          deviceId: widget.deviceId,
-          channelId: widget.channelId,
-          streamType: 'SUB', // Grid always uses sub-stream to save bandwidth
-          sdpOffer: sdpOffer,
-        ),
+      final config = {
+        'sdpSemantics': 'unified-plan',
+        'iceServers': [
+          {'urls': 'stun:stun.l.google.com:19302'},
+        ],
+        'iceTransportPolicy': 'all',
+      };
+
+      _pc = await createPeerConnection(config);
+
+      // Receive-only transceivers (we never send from the app)
+      await _pc!.addTransceiver(
+        kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
+        init: RTCRtpTransceiverInit(direction: TransceiverDirection.RecvOnly),
       );
+      await _pc!.addTransceiver(
+        kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
+        init: RTCRtpTransceiverInit(direction: TransceiverDirection.RecvOnly),
+      );
+
+      _pc!.onTrack = (RTCTrackEvent event) {
+        if (event.streams.isNotEmpty && mounted) {
+          setState(() => _renderer.srcObject = event.streams[0]);
+          _applyMute(widget.isMuted);
+        }
+      };
+
+      // Create offer
+      final offer = await _pc!.createOffer();
+      await _pc!.setLocalDescription(offer);
+
+      // Wait for ICE gathering to complete (max 1.5s)
+      if (_pc!.iceGatheringState !=
+          RTCIceGatheringState.RTCIceGatheringStateComplete) {
+        final done = Completer<void>();
+        _pc!.onIceGatheringState = (state) {
+          if (state == RTCIceGatheringState.RTCIceGatheringStateComplete &&
+              !done.isCompleted) {
+            done.complete();
+          }
+        };
+        await done.future.timeout(
+          const Duration(milliseconds: 1500),
+          onTimeout: () {},
+        );
+      }
+
+      final finalDesc = await _pc!.getLocalDescription();
+      final sdpOffer = finalDesc?.sdp ?? offer.sdp ?? '';
+
+      if (mounted) {
+        context.read<StreamBloc>().add(
+          StartStreamEvent(
+            deviceId: widget.deviceId,
+            channelId: widget.channelId,
+            streamType: 'SUB', // Grid always uses sub-stream to save bandwidth
+            sdpOffer: sdpOffer,
+          ),
+        );
+      }
+    } finally {
+      // Always unlock the negotiation flag regardless of success or failure
+      _negotiationInProgress = false;
     }
   }
 
@@ -199,6 +231,11 @@ class _LiveStreamGridPlayerState extends State<LiveStreamGridPlayer> {
         // StreamBloc may already be closed during widget disposal — safe to ignore
       }
       _sessionId = null;
+    }
+
+    // Explicitly kill hardware tracks to release OS camera/audio resources
+    if (_renderer.srcObject != null) {
+      _renderer.srcObject!.getTracks().forEach((track) => track.stop());
     }
 
     await _closePeerConnection();

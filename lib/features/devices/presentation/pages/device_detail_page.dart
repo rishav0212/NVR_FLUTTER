@@ -126,6 +126,8 @@ class _DeviceDetailPageState extends State<DeviceDetailPage> {
                   onMuteToggle: _toggleMute,
                   columns: _columns,
                   isMuted: _isMuted,
+
+
                 ),
                 // Main content
                 Expanded(
@@ -520,6 +522,7 @@ class _CameraGridPage extends StatelessWidget {
               // Only stream if this page is the currently visible page
               isActive: isPageActive,
               isMuted: isMuted,
+              gridIndex: gridIndex,
               onFullScreenTap: () => onFullScreen(channel),
             ),
           );
